@@ -1,5 +1,5 @@
 /* words.js — typerogue word pools */
-window.TYPEROGUE_WORDS = {
+window.TYPERUN_WORDS = {
   tiers: [
 
     // ── Tier 0: 3-5 chars — waves 1-2 ───────────────────────────────────────

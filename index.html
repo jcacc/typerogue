@@ -19,7 +19,7 @@
 <body>
 <canvas id="c"></canvas>
 
-<script src="../typerun/words.js"></script>
+<script src="words.js"></script>
 <script src="rogue-audio.js"></script>
 <script src="rogue-data.js"></script>
 <script>
@@ -170,74 +170,12 @@ function hpBar(x, y, w, h, hp, maxHp, color) {
 
 // ── Dungeon room drawing ───────────────────────────────────────────────────────
 function drawDungeonRoom() {
-  // ── Outer stone walls ────────────────────────────────────────────────────────
-  const wallColor  = '#181418';
-  const wallColor2 = '#201a20';
-  const mortarColor = '#111';
-  rect(RM.x, RM.y, RM.w, RM.h, wallColor);
-
-  // Brick pattern on walls
-  const brickW = 44, brickH = 18;
-  cx.fillStyle = wallColor2;
-  for (let by = RM.y; by < RM.y + RM.h; by += brickH * 2) {
-    for (let bx = RM.x; bx < RM.x + RM.w; bx += brickW) {
-      cx.fillRect(bx + 1, by + 1, brickW - 2, brickH - 2);
-    }
-  }
-  for (let by = RM.y + brickH; by < RM.y + RM.h; by += brickH * 2) {
-    for (let bx = RM.x - brickW / 2; bx < RM.x + RM.w; bx += brickW) {
-      cx.fillRect(bx + 1, by + 1, brickW - 2, brickH - 2);
-    }
-  }
-
-  // ── Stone floor ────────────────────────────────────────────────────────────
-  // Clip to floor area
-  cx.save();
-  cx.beginPath();
-  cx.rect(FLOOR_X1, FLOOR_Y1, FLOOR_W, FLOOR_H);
-  cx.clip();
-
-  rect(FLOOR_X1, FLOOR_Y1, FLOOR_W, FLOOR_H, '#1c1820');
-
-  // Tile grid
-  cx.strokeStyle = '#141218';
-  cx.lineWidth = 1;
-  const tOffX = FLOOR_X1 % TILE;
-  const tOffY = FLOOR_Y1 % TILE;
-  for (let tx = FLOOR_X1 - tOffX; tx < FLOOR_X2; tx += TILE) {
-    for (let ty = FLOOR_Y1 - tOffY; ty < FLOOR_Y2; ty += TILE) {
-      const col = Math.floor((tx - FLOOR_X1 + TILE) / TILE);
-      const row = Math.floor((ty - FLOOR_Y1 + TILE) / TILE);
-      const shade = (tileShade[row % 20] || [])[col % 25] || 0;
-      cx.fillStyle = `rgba(255,255,255,${shade})`;
-      cx.fillRect(tx + 1, ty + 1, TILE - 2, TILE - 2);
-      cx.strokeRect(tx, ty, TILE, TILE);
-    }
-  }
-
-  // Subtle vignette: darken edges of floor
-  const grad = cx.createRadialGradient(W/2, (FLOOR_Y1+FLOOR_Y2)/2, FLOOR_W*0.2, W/2, (FLOOR_Y1+FLOOR_Y2)/2, FLOOR_W*0.7);
-  grad.addColorStop(0, 'transparent');
-  grad.addColorStop(1, 'rgba(0,0,0,0.55)');
-  cx.fillStyle = grad;
-  cx.fillRect(FLOOR_X1, FLOOR_Y1, FLOOR_W, FLOOR_H);
-
-  cx.restore();
-
-  // ── Floor border (inner wall edge) ────────────────────────────────────────
-  cx.strokeStyle = '#2a2030';
-  cx.lineWidth = 2;
-  cx.strokeRect(FLOOR_X1, FLOOR_Y1, FLOOR_W, FLOOR_H);
-
-  // ── Torches ────────────────────────────────────────────────────────────────
-  drawTorch(FLOOR_X1 + 35, FLOOR_Y1 + 30);
-  drawTorch(FLOOR_X2 - 35, FLOOR_Y1 + 30);
-  drawTorch(FLOOR_X1 + 35, FLOOR_Y2 - 30);
-  drawTorch(FLOOR_X2 - 35, FLOOR_Y2 - 30);
-
-  // ── Corner skulls ──────────────────────────────────────────────────────────
-  drawSkull(RM.x + 8, RM.y + 8);
-  drawSkull(RM.x + RM.w - 8, RM.y + 8);
+  rect(RM.x, RM.y, RM.w, RM.h, '#0a0a10');
+  cx.strokeStyle = '#2a2040'; cx.lineWidth = 2;
+  cx.strokeRect(RM.x, RM.y, RM.w, RM.h);
+  const midY = (FLOOR_Y1 + FLOOR_Y2) / 2;
+  cx.strokeStyle = '#181828'; cx.lineWidth = 1;
+  cx.beginPath(); cx.moveTo(FLOOR_X1, midY); cx.lineTo(FLOOR_X2, midY); cx.stroke();
 }
 
 function drawTorch(x, y) {
@@ -273,82 +211,29 @@ function drawSkull(x, y) {
 
 // ── Enemy sprite (emoji) ───────────────────────────────────────────────────────
 function drawEnemy(enemyData, x, y, hp, maxHp, phase) {
-  const t = combatTick * 0.002;
-  const bob = Math.sin(t * 2.8) * 2.5;
-  const sz = enemyData.size;
-  const emoji = enemyData.emoji || '👹';
-  const fontSize = sz * 2.6;
-
+  const bob = Math.sin(combatTick * 0.006) * 2;
   cx.save(); cx.translate(x, y + bob);
-
-  // Shadow
-  const shad = cx.createRadialGradient(0, sz*0.5, 0, 0, sz*0.5, sz*1.1);
-  shad.addColorStop(0, 'rgba(0,0,0,0.55)');
-  shad.addColorStop(1, 'transparent');
-  cx.fillStyle = shad;
-  cx.beginPath(); cx.ellipse(0, sz*0.5, sz*1.0, sz*0.4, 0, 0, Math.PI*2); cx.fill();
-
-  // Phase glow
+  cx.font = '28px serif';
+  cx.textAlign = 'center'; cx.textBaseline = 'middle';
+  cx.fillText(enemyData.emoji || '👹', 0, 0);
   if (phase > 0) {
-    const pg = cx.createRadialGradient(0, 0, fontSize * 0.3, 0, 0, fontSize * 1.1);
-    pg.addColorStop(0, `rgba(255,80,80,${0.28 + Math.sin(t * 5) * 0.12})`);
-    pg.addColorStop(1, 'transparent');
-    cx.fillStyle = pg;
-    cx.beginPath(); cx.arc(0, 0, fontSize * 1.1, 0, Math.PI*2); cx.fill();
+    cx.font = "bold 9px 'Space Mono',monospace";
+    cx.fillStyle = '#e84393'; cx.textBaseline = 'alphabetic';
+    cx.fillText('★', 16, -16);
   }
-
-  // Enemy color glow ring
-  const col = enemyData.color || '#ff4444';
-  const glow = cx.createRadialGradient(0, 0, fontSize * 0.1, 0, 0, fontSize * 0.8);
-  glow.addColorStop(0, col + '33');
-  glow.addColorStop(1, 'transparent');
-  cx.fillStyle = glow;
-  cx.beginPath(); cx.arc(0, 0, fontSize * 0.8, 0, Math.PI*2); cx.fill();
-
-  // Emoji
-  cx.font = `${fontSize}px serif`;
-  cx.textAlign = 'center';
-  cx.textBaseline = 'middle';
-  cx.fillText(emoji, 0, 0);
-  cx.textBaseline = 'alphabetic';
-  cx.textAlign = 'left';
-
+  cx.textBaseline = 'alphabetic'; cx.textAlign = 'left';
   cx.restore();
 }
 
 // ── Player sprite (emoji) ─────────────────────────────────────────────────────
 function drawPlayer(classId, x, y) {
-  const t = combatTick * 0.002;
-  const bob = Math.sin(t * 3.5) * 1.5;
+  const bob = Math.sin(combatTick * 0.007) * 1.5;
   const emojiMap = { warrior:'🛡️', rogue:'🥷', mage:'🧙' };
-  const colors   = { warrior:'#74b9ff', rogue:'#ff7675', mage:'#a29bfe' };
-  const emoji = emojiMap[classId] || '🛡️';
-  const col   = colors[classId]   || '#74b9ff';
-
   cx.save(); cx.translate(x, y + bob);
-
-  // Shadow
-  const shad = cx.createRadialGradient(0, 18, 0, 0, 18, 26);
-  shad.addColorStop(0, 'rgba(0,0,0,0.45)');
-  shad.addColorStop(1, 'transparent');
-  cx.fillStyle = shad;
-  cx.beginPath(); cx.ellipse(0, 16, 22, 9, 0, 0, Math.PI*2); cx.fill();
-
-  // Class-color glow ring
-  const glow = cx.createRadialGradient(0, 0, 0, 0, 0, 32);
-  glow.addColorStop(0, col + '50');
-  glow.addColorStop(1, 'transparent');
-  cx.fillStyle = glow;
-  cx.beginPath(); cx.arc(0, 0, 32, 0, Math.PI*2); cx.fill();
-
-  // Emoji
-  cx.font = '38px serif';
-  cx.textAlign = 'center';
-  cx.textBaseline = 'middle';
-  cx.fillText(emoji, 0, 0);
-  cx.textBaseline = 'alphabetic';
-  cx.textAlign = 'left';
-
+  cx.font = '28px serif';
+  cx.textAlign = 'center'; cx.textBaseline = 'middle';
+  cx.fillText(emojiMap[classId] || '🛡️', 0, 0);
+  cx.textBaseline = 'alphabetic'; cx.textAlign = 'left';
   cx.restore();
 }
 
@@ -994,7 +879,6 @@ function processKey(key) {
         upgradeChosen = true;
         RA.playUpgradePick();
         setTimeout(() => {
-          buildMap();
           RA.setTheme('dungeon');
           G.screen = 'map';
         }, 700);
@@ -1252,56 +1136,20 @@ function setupShop(nodeIdx) {
 function drawTitle() {
   cx.fillStyle = '#06060c';
   cx.fillRect(0, 0, W, H);
-
-  // Dungeon stone floor
-  cx.strokeStyle = '#0d0d14';
-  cx.lineWidth = 1;
-  for (let tx = 0; tx < W; tx += TILE) cx.strokeRect(tx, 0, TILE, H);
-  for (let ty = 0; ty < H; ty += TILE) cx.strokeRect(0, ty, W, TILE);
-
-  // Particles (dust motes)
   titleTick += 1;
-  titleParticles.forEach(p => {
-    p.x += p.vx; p.y += p.vy;
-    if (p.x < 0 || p.x > W) p.vx *= -1;
-    if (p.y < 0 || p.y > H) p.vy *= -1;
-    cx.globalAlpha = 0.3 + Math.sin(titleTick * 0.02 + p.phase) * 0.2;
-    cx.fillStyle = p.color;
-    cx.beginPath(); cx.arc(p.x, p.y, p.r, 0, Math.PI*2); cx.fill();
-  });
-  cx.globalAlpha = 1;
 
-  // Title glow
-  const glowAmt = 0.6 + Math.sin(titleTick * 0.04) * 0.2;
-  const g = cx.createRadialGradient(W/2, 180, 0, W/2, 180, 260);
-  g.addColorStop(0, `rgba(100,50,200,${glowAmt * 0.3})`);
-  g.addColorStop(1, 'transparent');
-  cx.fillStyle = g;
-  cx.fillRect(0, 0, W, H);
-
-  // Title text
-  cx.save();
-  cx.shadowBlur = 30;
-  cx.shadowColor = '#7c3aed';
   text('TYPEROGUE', W/2, 195, '#ffd700', "bold 62px 'Space Mono','Courier New',monospace", 'center');
-  cx.restore();
 
-  cx.strokeStyle = '#ffd70033';
-  cx.lineWidth = 1;
+  cx.strokeStyle = '#ffd70033'; cx.lineWidth = 1;
   cx.beginPath(); cx.moveTo(160, 210); cx.lineTo(W-160, 210); cx.stroke();
 
   text('A TYPING ROGUELIKE', W/2, 238, '#555', "12px 'Space Mono',monospace", 'center');
-
-  // Torches beside title
-  drawTorchTitle(130, 185);
-  drawTorchTitle(W - 130, 185);
 
   const blink = Math.floor(titleTick / 35) % 2 === 0;
   if (blink) text('PRESS ENTER TO BEGIN', W/2, 295, '#00ee88', FONT, 'center');
 
   text('TYPE TO DESTROY ENEMIES — SURVIVE ALL 3 FLOORS', W/2, 370, '#333', FONT_SM, 'center');
   text('← → select class · 1-3 activate spells · ESC pause', W/2, 392, '#282830', FONT_SM, 'center');
-
   text('v0.1', W - 16, H - 10, '#222', FONT_SM, 'right');
 }
 
@@ -1324,11 +1172,6 @@ function drawClassSelectScreen() {
   cx.fillStyle = '#08080f';
   cx.fillRect(0, 0, W, H);
 
-  // Stone bg
-  cx.strokeStyle = '#10101c'; cx.lineWidth = 1;
-  for (let tx = 0; tx < W; tx += TILE) cx.strokeRect(tx, 0, TILE, H);
-  for (let ty = 0; ty < H; ty += TILE) cx.strokeRect(0, ty, W, TILE);
-
   text('CHOOSE YOUR CLASS', W/2, 56, '#ffd700', FONT_LG, 'center');
   cx.strokeStyle = '#ffd70033'; cx.lineWidth = 1;
   cx.beginPath(); cx.moveTo(100, 68); cx.lineTo(W-100, 68); cx.stroke();
@@ -1344,19 +1187,11 @@ function drawClassSelectScreen() {
     const cy2 = 95;
     const selected = i === classSelectIdx;
 
-    if (selected) {
-      const g = cx.createRadialGradient(cx2 + cardW/2, cy2 + cardH/2, 0, cx2+cardW/2, cy2+cardH/2, cardW*0.8);
-      g.addColorStop(0, cls.color + '22');
-      g.addColorStop(1, 'transparent');
-      cx.fillStyle = g;
-      cx.fillRect(cx2 - 10, cy2 - 10, cardW + 20, cardH + 20);
-    }
-
     roundRect(cx2, cy2, cardW, cardH, 8, selected ? '#0f0f1e' : '#0a0a14');
     roundRect(cx2, cy2, cardW, cardH, 8, null, selected ? cls.color : '#2a2040', selected ? 2.5 : 1);
 
-    // Class icon
-    cx.font = "40px 'Space Mono',monospace";
+    // Class icon (emoji)
+    cx.font = '36px serif';
     cx.textAlign = 'center';
     cx.fillStyle = cls.color;
     cx.fillText(cls.icon, cx2 + cardW/2, cy2 + 58);
@@ -1546,10 +1381,6 @@ function drawUpgradeScreen() {
   cx.fillStyle = '#06060c';
   cx.fillRect(0, 0, W, H);
 
-  cx.strokeStyle = '#0d0d18'; cx.lineWidth = 1;
-  for (let tx = 0; tx < W; tx += TILE) cx.strokeRect(tx, 0, TILE, H);
-  for (let ty = 0; ty < H; ty += TILE) cx.strokeRect(0, ty, W, TILE);
-
   text('ROOM CLEARED!', W/2, 55, '#ffd700', FONT_LG, 'center');
   text('CHOOSE AN UPGRADE', W/2, 80, '#888', FONT_SM, 'center');
 
@@ -1565,12 +1396,6 @@ function drawUpgradeScreen() {
     const cy2 = 110;
     const rarCol = RD.rarityColor[u.rarity] || '#fff';
     const typeIcon = { passive:'◆', spell:'✦', deck:'⊕' }[u.type] || '◆';
-
-    const g2 = cx.createRadialGradient(cx2+cardW/2, cy2+cardH/2, 0, cx2+cardW/2, cy2+cardH/2, cardW*0.8);
-    g2.addColorStop(0, rarCol + '18');
-    g2.addColorStop(1, 'transparent');
-    cx.fillStyle = g2;
-    cx.fillRect(cx2-8, cy2-8, cardW+16, cardH+16);
 
     roundRect(cx2, cy2, cardW, cardH, 10, '#0a0a16');
     roundRect(cx2, cy2, cardW, cardH, 10, null, rarCol, 2);
@@ -1617,10 +1442,6 @@ function drawUpgradeScreen() {
 function drawCombatResultScreen() {
   cx.fillStyle = '#06060c';
   cx.fillRect(0, 0, W, H);
-
-  cx.strokeStyle = '#0d0d18'; cx.lineWidth = 1;
-  for (let tx = 0; tx < W; tx += TILE) cx.strokeRect(tx, 0, TILE, H);
-  for (let ty = 0; ty < H; ty += TILE) cx.strokeRect(0, ty, W, TILE);
 
   cx.save();
   cx.shadowBlur = 30; cx.shadowColor = '#ffd700';
@@ -1710,9 +1531,6 @@ function drawRestScreen() {
 function drawGameOverScreen() {
   cx.fillStyle = '#06000a';
   cx.fillRect(0, 0, W, H);
-  cx.strokeStyle = '#0d000f'; cx.lineWidth = 1;
-  for (let tx = 0; tx < W; tx += TILE) cx.strokeRect(tx, 0, TILE, H);
-  for (let ty = 0; ty < H; ty += TILE) cx.strokeRect(0, ty, W, TILE);
 
   cx.save();
   cx.shadowBlur = 40; cx.shadowColor = '#e74c3c';
@@ -1736,9 +1554,6 @@ function drawGameOverScreen() {
 function drawVictoryScreen() {
   cx.fillStyle = '#060a00';
   cx.fillRect(0, 0, W, H);
-  cx.strokeStyle = '#0a0f00'; cx.lineWidth = 1;
-  for (let tx = 0; tx < W; tx += TILE) cx.strokeRect(tx, 0, TILE, H);
-  for (let ty = 0; ty < H; ty += TILE) cx.strokeRect(0, ty, W, TILE);
 
   cx.save();
   cx.shadowBlur = 50; cx.shadowColor = '#ffd700';
