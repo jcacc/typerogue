@@ -56,6 +56,20 @@ window.ROGUE_DATA = {
       color: '#fdcb6e', bodyColor: '#e17055', eyeColor: '#d63031',
       size: 34, emoji: '👑',
     },
+    dire_rat: {
+      id: 'dire_rat', name: 'Dire Rat', floor: 1, type: 'normal',
+      hp: 40, wordSpeed: 32, wordInterval: 1900, attackInterval: 9500, attackDmg: 6,
+      wordTiers: [0, 1], loot: { gold: 10 }, phases: [],
+      color: '#b2bec3', bodyColor: '#636e72', eyeColor: '#e74c3c',
+      size: 14, emoji: '🐀',
+    },
+    goblin_shaman: {
+      id: 'goblin_shaman', name: 'Goblin Shaman', floor: 1, type: 'normal',
+      hp: 70, wordSpeed: 22, wordInterval: 2800, attackInterval: 7500, attackDmg: 11,
+      wordTiers: [1, 2], loot: { gold: 18 }, phases: [],
+      color: '#a29bfe', bodyColor: '#6c5ce7', eyeColor: '#55efc4',
+      size: 18, emoji: '🧙',
+    },
 
     // ── Floor 2 ──
     shadow_archer: {
@@ -90,6 +104,20 @@ window.ROGUE_DATA = {
       color: '#a29bfe', bodyColor: '#341f97', eyeColor: '#00cec9',
       size: 36, emoji: '🧟',
     },
+    plague_knight: {
+      id: 'plague_knight', name: 'Plague Knight', floor: 2, type: 'normal',
+      hp: 115, wordSpeed: 28, wordInterval: 2500, attackInterval: 7000, attackDmg: 17,
+      wordTiers: [1, 2], loot: { gold: 33 }, phases: [],
+      color: '#55efc4', bodyColor: '#00b894', eyeColor: '#fdcb6e',
+      size: 22, emoji: '⚗️',
+    },
+    spectral_wolf: {
+      id: 'spectral_wolf', name: 'Spectral Wolf', floor: 2, type: 'normal',
+      hp: 75, wordSpeed: 40, wordInterval: 2100, attackInterval: 7500, attackDmg: 12,
+      wordTiers: [1, 2], loot: { gold: 28 }, phases: [],
+      color: '#dfe6e9', bodyColor: '#b2bec3', eyeColor: '#74b9ff',
+      size: 18, emoji: '🐺',
+    },
 
     // ── Floor 3 ──
     storm_knight: {
@@ -116,6 +144,13 @@ window.ROGUE_DATA = {
       ],
       color: '#fd79a8', bodyColor: '#6d214f', eyeColor: '#ffd700',
       size: 40, emoji: '👾',
+    },
+    iron_golem: {
+      id: 'iron_golem', name: 'Iron Golem', floor: 3, type: 'normal',
+      hp: 210, wordSpeed: 30, wordInterval: 2900, attackInterval: 5800, attackDmg: 26,
+      wordTiers: [2, 3], loot: { gold: 50 }, phases: [],
+      color: '#b2bec3', bodyColor: '#636e72', eyeColor: '#ffd700',
+      size: 28, emoji: '🤖',
     },
   },
 
@@ -170,9 +205,9 @@ window.ROGUE_DATA = {
   // ── Map templates (floor structure) ─────────────────────────────────────────
   // Each floor: one entry, two branches (2-3 rooms each), one boss
   floorEnemies: {
-    1: { normal: ['goblin_scout','cave_troll'], elite: ['cursed_tome'], boss: 'goblin_king' },
-    2: { normal: ['shadow_archer','void_wraith'], elite: ['bone_oracle'], boss: 'lich_lord' },
-    3: { normal: ['storm_knight','dread_sorcerer'], elite: ['dread_sorcerer'], boss: 'tyrant_prime' },
+    1: { normal: ['goblin_scout','cave_troll','dire_rat','goblin_shaman'], elite: ['cursed_tome'], boss: 'goblin_king' },
+    2: { normal: ['shadow_archer','void_wraith','plague_knight','spectral_wolf'], elite: ['bone_oracle'], boss: 'lich_lord' },
+    3: { normal: ['storm_knight','dread_sorcerer','iron_golem'], elite: ['dread_sorcerer'], boss: 'tyrant_prime' },
   },
 
   // ── Power words for deck manipulation ───────────────────────────────────────

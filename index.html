@@ -8,12 +8,12 @@
   <style>
     * { margin:0; padding:0; box-sizing:border-box; }
     body {
-      background:#060608;
+      background:#ffffff;
       display:flex; justify-content:center; align-items:center;
       height:100vh; overflow:hidden;
       font-family:'Space Mono','Courier New',monospace;
     }
-    canvas { display:block; image-rendering:pixelated; }
+    canvas { display:block; image-rendering:pixelated; border:1px solid #ddd; }
   </style>
 </head>
 <body>
@@ -162,19 +162,19 @@ function text(str, x, y, color, font, align) {
 }
 
 function hpBar(x, y, w, h, hp, maxHp, color) {
-  roundRect(x, y, w, h, 3, '#111');
+  roundRect(x, y, w, h, 3, '#ddddee');
   const pct = clamp(hp / maxHp, 0, 1);
   if (pct > 0) roundRect(x, y, w * pct, h, 3, color);
-  roundRect(x, y, w, h, 3, null, '#333', 1);
+  roundRect(x, y, w, h, 3, null, '#aaaacc', 1);
 }
 
 // ── Dungeon room drawing ───────────────────────────────────────────────────────
 function drawDungeonRoom() {
-  rect(RM.x, RM.y, RM.w, RM.h, '#0a0a10');
-  cx.strokeStyle = '#2a2040'; cx.lineWidth = 2;
+  rect(RM.x, RM.y, RM.w, RM.h, '#f0f0f8');
+  cx.strokeStyle = '#c0c0d8'; cx.lineWidth = 2;
   cx.strokeRect(RM.x, RM.y, RM.w, RM.h);
   const midY = (FLOOR_Y1 + FLOOR_Y2) / 2;
-  cx.strokeStyle = '#181828'; cx.lineWidth = 1;
+  cx.strokeStyle = '#d8d8e8'; cx.lineWidth = 1;
   cx.beginPath(); cx.moveTo(FLOOR_X1, midY); cx.lineTo(FLOOR_X2, midY); cx.stroke();
 }
 
@@ -213,7 +213,7 @@ function drawSkull(x, y) {
 function drawEnemy(enemyData, x, y, hp, maxHp, phase) {
   const bob = Math.sin(combatTick * 0.006) * 2;
   cx.save(); cx.translate(x, y + bob);
-  cx.font = '28px serif';
+  cx.font = '20px serif';
   cx.textAlign = 'center'; cx.textBaseline = 'middle';
   cx.fillText(enemyData.emoji || '👹', 0, 0);
   if (phase > 0) {
@@ -230,7 +230,7 @@ function drawPlayer(classId, x, y) {
   const bob = Math.sin(combatTick * 0.007) * 1.5;
   const emojiMap = { warrior:'🛡️', rogue:'🥷', mage:'🧙' };
   cx.save(); cx.translate(x, y + bob);
-  cx.font = '28px serif';
+  cx.font = '20px serif';
   cx.textAlign = 'center'; cx.textBaseline = 'middle';
   cx.fillText(emojiMap[classId] || '🛡️', 0, 0);
   cx.textBaseline = 'alphabetic'; cx.textAlign = 'left';
@@ -263,14 +263,14 @@ function drawWords() {
     }
 
     if (isAttack) {
-      roundRect(bgX, bgY, bgW, bgH, 4, 'rgba(120,20,20,0.85)');
+      roundRect(bgX, bgY, bgW, bgH, 4, 'rgba(255,200,200,0.92)');
       roundRect(bgX, bgY, bgW, bgH, 4, null, '#cc3333', 1);
     } else {
-      roundRect(bgX, bgY, bgW, bgH, 4, 'rgba(10,10,20,0.82)');
-      roundRect(bgX, bgY, bgW, bgH, 4, null, isActive ? '#ffd700' : '#333', 1);
+      roundRect(bgX, bgY, bgW, bgH, 4, 'rgba(220,220,240,0.95)');
+      roundRect(bgX, bgY, bgW, bgH, 4, null, isActive ? '#b8860b' : '#aaaacc', 1);
     }
 
-    // Text — typed part green, rest white/red
+    // Text — typed part green, rest dark/red
     const txt = w.text;
     const typedLen = isActive ? typed.length : 0;
     let drawX = x - cx.measureText(txt).width / 2;
@@ -279,13 +279,13 @@ function drawWords() {
     if (typedLen > 0 && isActive) {
       const typedPart = txt.slice(0, typedLen);
       const restPart  = txt.slice(typedLen);
-      cx.fillStyle = '#00ee88';
+      cx.fillStyle = '#007744';
       cx.fillText(typedPart, drawX, textY);
       drawX += cx.measureText(typedPart).width;
-      cx.fillStyle = isAttack ? '#ff6060' : '#f0f0f0';
+      cx.fillStyle = isAttack ? '#cc1111' : '#222222';
       cx.fillText(restPart, drawX, textY);
     } else {
-      cx.fillStyle = isAttack ? '#ff5050' : (isActive ? '#fff' : '#cccccc');
+      cx.fillStyle = isAttack ? '#cc1111' : (isActive ? '#111' : '#333');
       cx.textAlign = 'center';
       cx.fillText(txt, x, textY);
       cx.textAlign = 'left';
@@ -352,18 +352,19 @@ function drawParticles() {
 
 // ── MAP ────────────────────────────────────────────────────────────────────────
 const ROOM_TYPE_META = {
-  combat:  { icon:'⚔', label:'Combat',  color:'#d63031', bgColor:'#1a0808' },
-  elite:   { icon:'☠', label:'Elite',   color:'#6c5ce7', bgColor:'#0d0820' },
-  shop:    { icon:'$', label:'Shop',    color:'#f39c12', bgColor:'#1a1200' },
-  rest:    { icon:'♥', label:'Rest',    color:'#00b894', bgColor:'#001a10' },
-  boss:    { icon:'♛', label:'BOSS',    color:'#e84393', bgColor:'#1a001a' },
-  entry:   { icon:'▶', label:'Start',   color:'#74b9ff', bgColor:'#000a1a' },
+  combat:  { icon:'⚔', label:'Combat',  color:'#d63031', bgColor:'#ffe8e8' },
+  elite:   { icon:'☠', label:'Elite',   color:'#6c5ce7', bgColor:'#ede8ff' },
+  shop:    { icon:'$', label:'Shop',    color:'#c07000', bgColor:'#fff5d6' },
+  rest:    { icon:'♥', label:'Rest',    color:'#007a5f', bgColor:'#e6fff5' },
+  boss:    { icon:'♛', label:'BOSS',    color:'#c01868', bgColor:'#ffe8f5' },
+  entry:   { icon:'▶', label:'Start',   color:'#2980b9', bgColor:'#e6f0ff' },
 };
 
 function generateFloor(floorNum) {
   const nodes = [];
   const FE = RD.floorEnemies[floorNum];
-  const normalEnemies = [...FE.normal];
+  // Shuffle pool so each run draws different enemies
+  const normalPool = [...FE.normal].sort(() => Math.random() - 0.5);
 
   function mkNode(type, enemyId, col, row) {
     return { type, enemyId: enemyId || null, col, row, cleared:false, reachable:false, id: nodes.length };
@@ -374,13 +375,13 @@ function generateFloor(floorNum) {
   nodes.push(mkNode('entry', null, 1, 0));    // index 0
 
   // Branch A (left)
-  nodes.push(mkNode('combat', normalEnemies[0] || 'goblin_scout', 0, 1)); // 1
+  nodes.push(mkNode('combat', normalPool[0] || 'goblin_scout', 0, 1)); // 1
   const hasShopA = Math.random() < 0.5;
   nodes.push(mkNode(hasShopA ? 'shop' : 'rest', null, 0, 2));             // 2
-  nodes.push(mkNode('combat', normalEnemies[1] || normalEnemies[0], 0, 3)); // 3
+  nodes.push(mkNode('combat', normalPool[1] || normalPool[0], 0, 3)); // 3
 
   // Branch B (right)
-  nodes.push(mkNode('combat', normalEnemies[1] || normalEnemies[0], 2, 1)); // 4
+  nodes.push(mkNode('combat', normalPool[2] || normalPool[1] || normalPool[0], 2, 1)); // 4
   nodes.push(mkNode('elite', FE.elite[0], 2, 2));                           // 5
   nodes.push(mkNode(hasShopA ? 'rest' : 'shop', null, 2, 3));              // 6
 
@@ -419,40 +420,37 @@ function getReachable() {
 
 function drawMapScreen() {
   // Background
-  cx.fillStyle = '#080810';
+  cx.fillStyle = '#f5f5fa';
   cx.fillRect(0, 0, W, H);
 
-  // Stone floor subtle texture
-  cx.strokeStyle = '#10101c';
+  // Subtle grid texture
+  cx.strokeStyle = '#e0e0f0';
   for (let tx = 0; tx < W; tx += 40) cx.strokeRect(tx, 0, 40, H);
   for (let ty = 0; ty < H; ty += 40) cx.strokeRect(0, ty, W, 40);
 
   // Title bar
-  cx.fillStyle = '#0c0c18';
+  cx.fillStyle = '#e8e8f4';
   cx.fillRect(0, 0, W, 44);
-  cx.strokeStyle = '#1e1e35'; cx.lineWidth = 1;
+  cx.strokeStyle = '#c8c8d8'; cx.lineWidth = 1;
   cx.strokeRect(0, 0, W, 44);
   text('FLOOR ' + (P.floor || 1), 20, 28, '#888', FONT_SM);
-  text('DUNGEON MAP', W/2, 28, '#ffd700', "bold 16px 'Space Mono',monospace", 'center');
-  text('HP: ' + P.hp + '/' + P.maxHp, W - 20, 28, P.hp < P.maxHp * 0.3 ? '#e74c3c' : '#00ee88', FONT_SM, 'right');
+  text('DUNGEON MAP', W/2, 28, '#b8860b', "bold 16px 'Space Mono',monospace", 'center');
+  text('HP: ' + P.hp + '/' + P.maxHp, W - 20, 28, P.hp < P.maxHp * 0.3 ? '#e74c3c' : '#007744', FONT_SM, 'right');
 
   // Draw map nodes and corridors
   const nodePos = getNodePos();
 
   // Draw corridors first
-  cx.strokeStyle = '#1e1830';
-  cx.lineWidth = 8;
   Object.entries(G.mapAdj || {}).forEach(([from, tos]) => {
     const fp = nodePos[+from];
     tos.forEach(to => {
       const tp = nodePos[to];
-      // Draw corridor (dashed stone path)
       cx.setLineDash([6, 8]);
-      cx.strokeStyle = '#181428';
+      cx.strokeStyle = '#d0d0e0';
       cx.lineWidth = 12;
       cx.beginPath(); cx.moveTo(fp.x, fp.y); cx.lineTo(tp.x, tp.y); cx.stroke();
       cx.setLineDash([]);
-      cx.strokeStyle = '#221c35';
+      cx.strokeStyle = '#c0c0d0';
       cx.lineWidth = 6;
       cx.beginPath(); cx.moveTo(fp.x, fp.y); cx.lineTo(tp.x, tp.y); cx.stroke();
     });
@@ -472,7 +470,7 @@ function drawMapScreen() {
 
     // Node background
     let bgAlpha = isCleared ? 0.25 : (isReachable ? 1 : 0.4);
-    let borderColor = isSelected ? '#ffd700' : (isReachable ? meta.color : '#2a2040');
+    let borderColor = isSelected ? '#b8860b' : (isReachable ? meta.color : '#ccccdd');
     let borderW = isSelected ? 2.5 : 1.5;
 
     cx.globalAlpha = bgAlpha;
@@ -495,12 +493,12 @@ function drawMapScreen() {
     // Icon
     cx.font = "20px 'Space Mono',monospace";
     cx.textAlign = 'center';
-    cx.fillStyle = isCleared ? '#444' : meta.color;
+    cx.fillStyle = isCleared ? '#aaa' : meta.color;
     cx.fillText(meta.icon, p.x, p.y - 3);
 
     // Label
     cx.font = "bold 9px 'Space Mono',monospace";
-    cx.fillStyle = isCleared ? '#333' : (isSelected ? '#ffd700' : '#888');
+    cx.fillStyle = isCleared ? '#aaa' : (isSelected ? '#b8860b' : '#555');
     cx.fillText(meta.label.toUpperCase(), p.x, p.y + 14);
 
     cx.textAlign = 'left';
@@ -508,14 +506,14 @@ function drawMapScreen() {
 
     // Cleared X
     if (isCleared) {
-      cx.strokeStyle = '#333'; cx.lineWidth = 2;
+      cx.strokeStyle = '#aaa'; cx.lineWidth = 2;
       cx.beginPath(); cx.moveTo(nx+4, ny+4); cx.lineTo(nx+nodeW-4, ny+nodeH-4); cx.stroke();
       cx.beginPath(); cx.moveTo(nx+nodeW-4, ny+4); cx.lineTo(nx+4, ny+nodeH-4); cx.stroke();
     }
 
     // Current position indicator
     if (isCurrent) {
-      cx.fillStyle = '#74b9ff';
+      cx.fillStyle = '#2980b9';
       cx.font = "12px 'Space Mono',monospace";
       cx.textAlign = 'center';
       cx.fillText('YOU', p.x, ny - 8);
@@ -524,11 +522,11 @@ function drawMapScreen() {
   });
 
   // Controls hint
-  cx.fillStyle = '#222';
+  cx.fillStyle = '#e8e8f4';
   cx.fillRect(0, H - 36, W, 36);
-  cx.strokeStyle = '#1e1e35'; cx.lineWidth = 1;
+  cx.strokeStyle = '#c8c8d8'; cx.lineWidth = 1;
   cx.strokeRect(0, H - 36, W, 36);
-  text('← → navigate rooms    ENTER: enter selected room', W/2, H - 12, '#444', FONT_SM, 'center');
+  text('← → navigate rooms    ENTER: enter selected room', W/2, H - 12, '#555', FONT_SM, 'center');
 
   // Player stats sidebar hint
   if (P.spells && P.spells.length > 0) {
@@ -1134,23 +1132,23 @@ function setupShop(nodeIdx) {
 
 // ── SCREENS DRAWING ────────────────────────────────────────────────────────────
 function drawTitle() {
-  cx.fillStyle = '#06060c';
+  cx.fillStyle = '#f5f5fa';
   cx.fillRect(0, 0, W, H);
   titleTick += 1;
 
-  text('TYPEROGUE', W/2, 195, '#ffd700', "bold 62px 'Space Mono','Courier New',monospace", 'center');
+  text('TYPEROGUE', W/2, 195, '#b8860b', "bold 62px 'Space Mono','Courier New',monospace", 'center');
 
-  cx.strokeStyle = '#ffd70033'; cx.lineWidth = 1;
+  cx.strokeStyle = '#b8860b44'; cx.lineWidth = 1;
   cx.beginPath(); cx.moveTo(160, 210); cx.lineTo(W-160, 210); cx.stroke();
 
-  text('A TYPING ROGUELIKE', W/2, 238, '#555', "12px 'Space Mono',monospace", 'center');
+  text('A TYPING ROGUELIKE', W/2, 238, '#777', "12px 'Space Mono',monospace", 'center');
 
   const blink = Math.floor(titleTick / 35) % 2 === 0;
-  if (blink) text('PRESS ENTER TO BEGIN', W/2, 295, '#00ee88', FONT, 'center');
+  if (blink) text('PRESS ENTER TO BEGIN', W/2, 295, '#007744', FONT, 'center');
 
-  text('TYPE TO DESTROY ENEMIES — SURVIVE ALL 3 FLOORS', W/2, 370, '#333', FONT_SM, 'center');
-  text('← → select class · 1-3 activate spells · ESC pause', W/2, 392, '#282830', FONT_SM, 'center');
-  text('v0.1', W - 16, H - 10, '#222', FONT_SM, 'right');
+  text('TYPE TO DESTROY ENEMIES — SURVIVE ALL 3 FLOORS', W/2, 370, '#555', FONT_SM, 'center');
+  text('← → select class · 1-3 activate spells · ESC pause', W/2, 392, '#888', FONT_SM, 'center');
+  text('v0.1', W - 16, H - 10, '#aaa', FONT_SM, 'right');
 }
 
 function drawTorchTitle(x, y) {
@@ -1169,11 +1167,11 @@ function drawTorchTitle(x, y) {
 }
 
 function drawClassSelectScreen() {
-  cx.fillStyle = '#08080f';
+  cx.fillStyle = '#f5f5fa';
   cx.fillRect(0, 0, W, H);
 
-  text('CHOOSE YOUR CLASS', W/2, 56, '#ffd700', FONT_LG, 'center');
-  cx.strokeStyle = '#ffd70033'; cx.lineWidth = 1;
+  text('CHOOSE YOUR CLASS', W/2, 56, '#b8860b', FONT_LG, 'center');
+  cx.strokeStyle = '#b8860b44'; cx.lineWidth = 1;
   cx.beginPath(); cx.moveTo(100, 68); cx.lineTo(W-100, 68); cx.stroke();
 
   const cids = CLASS_IDS;
@@ -1187,8 +1185,8 @@ function drawClassSelectScreen() {
     const cy2 = 95;
     const selected = i === classSelectIdx;
 
-    roundRect(cx2, cy2, cardW, cardH, 8, selected ? '#0f0f1e' : '#0a0a14');
-    roundRect(cx2, cy2, cardW, cardH, 8, null, selected ? cls.color : '#2a2040', selected ? 2.5 : 1);
+    roundRect(cx2, cy2, cardW, cardH, 8, selected ? '#e8e8ff' : '#f0f0f8');
+    roundRect(cx2, cy2, cardW, cardH, 8, null, selected ? cls.color : '#c0c0d8', selected ? 2.5 : 1);
 
     // Class icon (emoji)
     cx.font = '36px serif';
@@ -1203,7 +1201,7 @@ function drawClassSelectScreen() {
     cx.font = "11px 'Space Mono',monospace";
     cx.fillStyle = '#555';
     cx.fillText(`HP: ${cls.hp + (cid==='warrior'?15:0)}  DMG: ${cls.dmgMult}×`, cx2 + cardW/2, cy2 + 115);
-    cx.fillStyle = '#444';
+    cx.fillStyle = '#666';
     cx.fillText(`Words: ${cid==='rogue' ? '1.35× harder' : 'normal'}`, cx2 + cardW/2, cy2 + 132);
 
     // Passive
@@ -1220,19 +1218,19 @@ function drawClassSelectScreen() {
     cx.font = "bold 10px 'Space Mono',monospace";
     cx.fillText('START SPELL', cx2 + cardW/2, cy2 + 210);
     cx.font = "10px 'Space Mono',monospace";
-    cx.fillStyle = cls.startSpell ? '#a29bfe' : '#333';
+    cx.fillStyle = cls.startSpell ? '#6c5ce7' : '#aaa';
     cx.fillText(cls.startSpell ? cls.startSpell.toUpperCase() : 'None', cx2 + cardW/2, cy2 + 226);
 
     // Description
     const desc = cls.desc;
-    cx.fillStyle = '#444';
+    cx.fillStyle = '#555';
     cx.font = "9px 'Space Mono',monospace";
     wrapText(desc, cx2 + 12, cy2 + 255, cardW - 24, 14, 'center');
 
     cx.textAlign = 'left';
   });
 
-  text('← → select    ENTER confirm', W/2, H - 20, '#333', FONT_SM, 'center');
+  text('← → select    ENTER confirm', W/2, H - 20, '#666', FONT_SM, 'center');
 }
 
 function wrapText(str, x, y, maxW, lineH, align) {
@@ -1255,7 +1253,7 @@ function wrapText(str, x, y, maxW, lineH, align) {
 
 function drawCombatScreen() {
   // Background (dungeon room)
-  cx.fillStyle = '#06060a';
+  cx.fillStyle = '#f5f5fa';
   cx.fillRect(0, 0, W, H);
 
   drawDungeonRoom();
@@ -1275,9 +1273,9 @@ function drawCombatScreen() {
 
   // Enemy HP bar (top strip)
   const eData = RD.enemies[enemy.id] || enemy;
-  cx.fillStyle = '#0a0a10';
+  cx.fillStyle = '#e8e8f4';
   cx.fillRect(0, 0, W, 50);
-  cx.strokeStyle = '#1a1a2a'; cx.lineWidth = 1;
+  cx.strokeStyle = '#c0c0d0'; cx.lineWidth = 1;
   cx.strokeRect(0, 0, W, 50);
 
   if (enemy.hitFlash > 0) {
@@ -1295,10 +1293,10 @@ function drawCombatScreen() {
 
   // Enemy HP bar
   hpBar(180, 16, 400, 16, enemy.hp, RD.enemies[enemy.id].hp, enemy.color || '#e74c3c');
-  text(enemy.hp + ' / ' + RD.enemies[enemy.id].hp, 590, 30, '#666', FONT_SM);
+  text(enemy.hp + ' / ' + RD.enemies[enemy.id].hp, 590, 30, '#777', FONT_SM);
 
   // Floor indicator
-  text('FLOOR ' + P.floor, W - 90, 22, '#333', FONT_SM);
+  text('FLOOR ' + P.floor, W - 90, 22, '#777', FONT_SM);
 
   // Draw enemy sprite
   drawEnemy(enemy, ENEMY_CX, ENEMY_CY, enemy.hp, RD.enemies[enemy.id].hp, enemy.currentPhase);
@@ -1315,14 +1313,14 @@ function drawCombatScreen() {
 
   // Freeze indicator
   if (freezeTimer > 0) {
-    text('❄ FROZEN', W/2, FLOOR_Y1 + 18, '#74b9ff', "bold 11px 'Space Mono',monospace", 'center');
+    text('❄ FROZEN', W/2, FLOOR_Y1 + 18, '#2980b9', "bold 11px 'Space Mono',monospace", 'center');
   }
 
   // ── Bottom HUD ──────────────────────────────────────────────────────────────
   const hudY = RM.y + RM.h;
-  cx.fillStyle = '#0a0a12';
+  cx.fillStyle = '#e8e8f4';
   cx.fillRect(0, hudY, W, H - hudY);
-  cx.strokeStyle = '#1a1a2a'; cx.lineWidth = 1;
+  cx.strokeStyle = '#c0c0d0'; cx.lineWidth = 1;
   cx.strokeRect(0, hudY, W, H - hudY);
 
   // Player HP bar
@@ -1332,11 +1330,11 @@ function drawCombatScreen() {
 
   // Shield
   if (P.shield > 0) {
-    text('🛡 ' + P.shield, 258, hudY + 22, '#74b9ff', FONT_SM);
+    text('🛡 ' + P.shield, 258, hudY + 22, '#2980b9', FONT_SM);
   }
 
   // Gold
-  text('¢' + P.gold, W - 60, hudY + 22, '#f39c12', FONT_SM, 'right');
+  text('¢' + P.gold, W - 60, hudY + 22, '#c07000', FONT_SM, 'right');
 
   // Spell buttons
   if (P.spells && P.spells.length > 0) {
@@ -1345,27 +1343,27 @@ function drawCombatScreen() {
       const ready = cd === 0;
       const spellX = 20 + i * 140;
       const spellY = hudY + 48;
-      roundRect(spellX, spellY, 128, 22, 4, ready ? '#0d1a0d' : '#0d0d18');
-      roundRect(spellX, spellY, 128, 22, 4, null, ready ? '#00b894' : '#333', 1);
+      roundRect(spellX, spellY, 128, 22, 4, ready ? '#d0f0d8' : '#e8e8f8');
+      roundRect(spellX, spellY, 128, 22, 4, null, ready ? '#007a5f' : '#aaa', 1);
       if (!ready) {
-        roundRect(spellX, spellY, 128 * (1 - cd / (RD.upgrades.find(u => u.spell === spell)?.cd || 15000)), 22, 4, '#113311');
+        roundRect(spellX, spellY, 128 * (1 - cd / (RD.upgrades.find(u => u.spell === spell)?.cd || 15000)), 22, 4, '#99cc99');
       }
-      text(`[${i+1}] ${spell.toUpperCase()}`, spellX + 6, spellY + 15, ready ? '#00ee88' : '#555', "bold 10px 'Space Mono',monospace");
-      if (!ready) text(`${(cd/1000).toFixed(1)}s`, spellX + 90, spellY + 15, '#444', "9px 'Space Mono',monospace");
+      text(`[${i+1}] ${spell.toUpperCase()}`, spellX + 6, spellY + 15, ready ? '#007744' : '#888', "bold 10px 'Space Mono',monospace");
+      if (!ready) text(`${(cd/1000).toFixed(1)}s`, spellX + 90, spellY + 15, '#777', "9px 'Space Mono',monospace");
     });
   }
 
   // Typed input display
   const inputX = 20;
   const inputY = H - 20;
-  text('> ' + typed + (Math.floor(combatTick / 400) % 2 === 0 ? '█' : ' '), inputX, inputY, '#00ee88', FONT);
+  text('> ' + typed + (Math.floor(combatTick / 400) % 2 === 0 ? '█' : ' '), inputX, inputY, '#007744', FONT);
 
   // Pause indicator
   if (paused) {
     cx.fillStyle = 'rgba(0,0,0,0.75)';
     cx.fillRect(0, 0, W, H);
-    text('PAUSED', W/2, H/2 - 10, '#74b9ff', FONT_XL, 'center');
-    text('ESC to resume · M to mute', W/2, H/2 + 28, '#444', FONT_SM, 'center');
+    text('PAUSED', W/2, H/2 - 10, '#2980b9', FONT_XL, 'center');
+    text('ESC to resume · M to mute', W/2, H/2 + 28, '#555', FONT_SM, 'center');
   }
 
   // Flash message
@@ -1378,13 +1376,13 @@ function drawCombatScreen() {
 }
 
 function drawUpgradeScreen() {
-  cx.fillStyle = '#06060c';
+  cx.fillStyle = '#f5f5fa';
   cx.fillRect(0, 0, W, H);
 
-  text('ROOM CLEARED!', W/2, 55, '#ffd700', FONT_LG, 'center');
+  text('ROOM CLEARED!', W/2, 55, '#b8860b', FONT_LG, 'center');
   text('CHOOSE AN UPGRADE', W/2, 80, '#888', FONT_SM, 'center');
 
-  cx.strokeStyle = '#ffd70033'; cx.lineWidth = 1;
+  cx.strokeStyle = '#b8860b44'; cx.lineWidth = 1;
   cx.beginPath(); cx.moveTo(120, 90); cx.lineTo(W-120, 90); cx.stroke();
 
   const cardW = 190, cardH = 260, gap = 22;
@@ -1397,7 +1395,7 @@ function drawUpgradeScreen() {
     const rarCol = RD.rarityColor[u.rarity] || '#fff';
     const typeIcon = { passive:'◆', spell:'✦', deck:'⊕' }[u.type] || '◆';
 
-    roundRect(cx2, cy2, cardW, cardH, 10, '#0a0a16');
+    roundRect(cx2, cy2, cardW, cardH, 10, '#eeeefc');
     roundRect(cx2, cy2, cardW, cardH, 10, null, rarCol, 2);
 
     // Key hint
@@ -1412,7 +1410,7 @@ function drawUpgradeScreen() {
 
     // Name
     cx.font = "bold 13px 'Space Mono',monospace";
-    cx.fillStyle = '#fff';
+    cx.fillStyle = '#111';
     cx.fillText(u.name, cx2 + cardW/2, cy2 + 110);
 
     // Rarity
@@ -1425,7 +1423,7 @@ function drawUpgradeScreen() {
     cx.fillText(u.type.toUpperCase(), cx2 + cardW/2, cy2 + 144);
 
     // Description
-    cx.fillStyle = '#aaa';
+    cx.fillStyle = '#555';
     cx.font = "10px 'Space Mono',monospace";
     wrapText(u.desc, cx2 + 14, cy2 + 172, cardW - 28, 15, 'center');
 
@@ -1433,47 +1431,47 @@ function drawUpgradeScreen() {
   });
 
   if (!upgradeChosen) {
-    text('Press 1 · 2 · 3 to choose', W/2, H - 20, '#444', FONT_SM, 'center');
+    text('Press 1 · 2 · 3 to choose', W/2, H - 20, '#555', FONT_SM, 'center');
   } else {
-    text('Applying upgrade...', W/2, H - 20, '#ffd700', FONT_SM, 'center');
+    text('Applying upgrade...', W/2, H - 20, '#b8860b', FONT_SM, 'center');
   }
 }
 
 function drawCombatResultScreen() {
-  cx.fillStyle = '#06060c';
+  cx.fillStyle = '#f5f5fa';
   cx.fillRect(0, 0, W, H);
 
   cx.save();
-  cx.shadowBlur = 30; cx.shadowColor = '#ffd700';
-  text('BOSS DEFEATED!', W/2, 155, '#ffd700', "bold 38px 'Space Mono',monospace", 'center');
+  cx.shadowBlur = 20; cx.shadowColor = '#b8860b';
+  text('BOSS DEFEATED!', W/2, 155, '#b8860b', "bold 38px 'Space Mono',monospace", 'center');
   cx.restore();
 
   text('FLOOR ' + ((P.floor||1) - 1) + ' CLEARED', W/2, 205, '#888', FONT, 'center');
 
-  cx.strokeStyle = '#ffd70033'; cx.lineWidth = 1;
+  cx.strokeStyle = '#b8860b44'; cx.lineWidth = 1;
   cx.beginPath(); cx.moveTo(200, 220); cx.lineTo(W-200, 220); cx.stroke();
 
-  text('HP: ' + P.hp + ' / ' + P.maxHp, W/2, 258, P.hp < P.maxHp*0.3 ? '#e74c3c' : '#00b894', FONT, 'center');
-  text('Gold: ¢' + P.gold, W/2, 288, '#f39c12', FONT, 'center');
+  text('HP: ' + P.hp + ' / ' + P.maxHp, W/2, 258, P.hp < P.maxHp*0.3 ? '#e74c3c' : '#007a5f', FONT, 'center');
+  text('Gold: ¢' + P.gold, W/2, 288, '#c07000', FONT, 'center');
   if (P.upgrades && P.upgrades.length) {
-    text('Upgrades: ' + P.upgrades.length, W/2, 318, '#a29bfe', FONT, 'center');
+    text('Upgrades: ' + P.upgrades.length, W/2, 318, '#6c5ce7', FONT, 'center');
   }
 
   const blink = Math.floor(Date.now() / 500) % 2 === 0;
-  if (blink) text('PRESS ENTER → NEXT FLOOR', W/2, 390, '#00ee88', FONT, 'center');
+  if (blink) text('PRESS ENTER → NEXT FLOOR', W/2, 390, '#007744', FONT, 'center');
 }
 
 function drawShopScreen() {
-  cx.fillStyle = '#080810';
+  cx.fillStyle = '#f5f5fa';
   cx.fillRect(0, 0, W, H);
-  cx.strokeStyle = '#10101c'; cx.lineWidth = 1;
+  cx.strokeStyle = '#e0e0f0'; cx.lineWidth = 1;
   for (let tx = 0; tx < W; tx += TILE) cx.strokeRect(tx, 0, TILE, H);
   for (let ty = 0; ty < H; ty += TILE) cx.strokeRect(0, ty, W, TILE);
 
-  text('SHOP', W/2, 55, '#f39c12', "bold 28px 'Space Mono',monospace", 'center');
+  text('SHOP', W/2, 55, '#c07000', "bold 28px 'Space Mono',monospace", 'center');
   text('Gold: ¢' + P.gold, W/2, 80, '#888', FONT, 'center');
 
-  cx.strokeStyle = '#f39c1233'; cx.lineWidth = 1;
+  cx.strokeStyle = '#c0700044'; cx.lineWidth = 1;
   cx.beginPath(); cx.moveTo(150, 92); cx.lineTo(W-150, 92); cx.stroke();
 
   const items = G.shopItems || [];
@@ -1490,50 +1488,50 @@ function drawShopScreen() {
       cx.fillStyle = g; cx.fillRect(0, rowY-5, W, 90);
     }
 
-    roundRect(120, rowY, W-240, 70, 6, '#0a0a14');
-    roundRect(120, rowY, W-240, 70, 6, null, selected ? '#f39c12' : '#2a2040', selected ? 2 : 1);
+    roundRect(120, rowY, W-240, 70, 6, '#eeeefc');
+    roundRect(120, rowY, W-240, 70, 6, null, selected ? '#c07000' : '#c0c0d8', selected ? 2 : 1);
 
     const rarCol = RD.rarityColor[u.rarity] || '#fff';
-    text(u.name, 148, rowY + 24, item.owned ? '#333' : '#fff', "bold 13px 'Space Mono',monospace");
-    text(u.rarity.toUpperCase() + ' ' + u.type.toUpperCase(), 148, rowY + 42, item.owned ? '#222' : rarCol, "10px 'Space Mono',monospace");
-    text(u.desc, 148, rowY + 58, item.owned ? '#222' : '#555', "9px 'Space Mono',monospace");
+    text(u.name, 148, rowY + 24, item.owned ? '#aaa' : '#111', "bold 13px 'Space Mono',monospace");
+    text(u.rarity.toUpperCase() + ' ' + u.type.toUpperCase(), 148, rowY + 42, item.owned ? '#bbb' : rarCol, "10px 'Space Mono',monospace");
+    text(u.desc, 148, rowY + 58, item.owned ? '#bbb' : '#555', "9px 'Space Mono',monospace");
     const costStr = item.owned ? 'OWNED' : ('¢' + item.cost);
-    text(costStr, W - 138, rowY + 35, item.owned ? '#333' : (canBuy ? '#f39c12' : '#e74c3c'), "bold 14px 'Space Mono',monospace", 'right');
+    text(costStr, W - 138, rowY + 35, item.owned ? '#aaa' : (canBuy ? '#c07000' : '#e74c3c'), "bold 14px 'Space Mono',monospace", 'right');
   });
 
   text('↑↓ navigate · ENTER buy · ESC leave', W/2, H - 20, '#333', FONT_SM, 'center');
 }
 
 function drawRestScreen() {
-  cx.fillStyle = '#060a06';
+  cx.fillStyle = '#f0fff5';
   cx.fillRect(0, 0, W, H);
-  cx.strokeStyle = '#0c100c'; cx.lineWidth = 1;
+  cx.strokeStyle = '#c0e8c8'; cx.lineWidth = 1;
   for (let tx = 0; tx < W; tx += TILE) cx.strokeRect(tx, 0, TILE, H);
   for (let ty = 0; ty < H; ty += TILE) cx.strokeRect(0, ty, W, TILE);
 
   cx.save();
-  cx.shadowBlur = 25; cx.shadowColor = '#00b894';
-  text('♥ REST SITE ♥', W/2, 170, '#00b894', "bold 28px 'Space Mono',monospace", 'center');
+  cx.shadowBlur = 15; cx.shadowColor = '#007a5f';
+  text('♥ REST SITE ♥', W/2, 170, '#007a5f', "bold 28px 'Space Mono',monospace", 'center');
   cx.restore();
 
   text('A moment of respite in the dungeon...', W/2, 215, '#555', FONT_SM, 'center');
-  cx.strokeStyle = '#00b89433'; cx.lineWidth = 1;
+  cx.strokeStyle = '#007a5f44'; cx.lineWidth = 1;
   cx.beginPath(); cx.moveTo(200, 228); cx.lineTo(W-200, 228); cx.stroke();
 
   const healAmt = Math.floor(P.maxHp * 0.35);
-  text(`Heal ${healAmt} HP  (${P.hp} → ${Math.min(P.maxHp, P.hp + healAmt)})`, W/2, 275, '#00ee88', FONT, 'center');
-  text(`Max HP: ${P.maxHp}`, W/2, 308, '#444', FONT, 'center');
+  text(`Heal ${healAmt} HP  (${P.hp} → ${Math.min(P.maxHp, P.hp + healAmt)})`, W/2, 275, '#007744', FONT, 'center');
+  text(`Max HP: ${P.maxHp}`, W/2, 308, '#555', FONT, 'center');
 
   const blink = Math.floor(Date.now() / 500) % 2 === 0;
-  if (blink) text('PRESS ENTER TO REST', W/2, 380, '#00ee88', FONT, 'center');
+  if (blink) text('PRESS ENTER TO REST', W/2, 380, '#007744', FONT, 'center');
 }
 
 function drawGameOverScreen() {
-  cx.fillStyle = '#06000a';
+  cx.fillStyle = '#fff5f8';
   cx.fillRect(0, 0, W, H);
 
   cx.save();
-  cx.shadowBlur = 40; cx.shadowColor = '#e74c3c';
+  cx.shadowBlur = 20; cx.shadowColor = '#e74c3c';
   text('DEFEATED', W/2, 175, '#e74c3c', "bold 50px 'Space Mono',monospace", 'center');
   cx.restore();
 
@@ -1541,37 +1539,37 @@ function drawGameOverScreen() {
   cx.beginPath(); cx.moveTo(180, 195); cx.lineTo(W-180, 195); cx.stroke();
 
   text('Slain by ' + (enemy ? enemy.name : 'the dungeon'), W/2, 238, '#666', FONT, 'center');
-  text('Floor ' + (P.floor || 1), W/2, 268, '#444', FONT, 'center');
-  text('Gold: ¢' + (P.gold || 0), W/2, 298, '#f39c12', FONT, 'center');
+  text('Floor ' + (P.floor || 1), W/2, 268, '#555', FONT, 'center');
+  text('Gold: ¢' + (P.gold || 0), W/2, 298, '#c07000', FONT, 'center');
   if (P.upgrades && P.upgrades.length) {
-    text('Upgrades collected: ' + P.upgrades.length, W/2, 328, '#a29bfe', FONT, 'center');
+    text('Upgrades collected: ' + P.upgrades.length, W/2, 328, '#6c5ce7', FONT, 'center');
   }
 
   const blink = Math.floor(Date.now() / 500) % 2 === 0;
-  if (blink) text('PRESS ENTER TO RETURN', W/2, 400, '#888', FONT, 'center');
+  if (blink) text('PRESS ENTER TO RETURN', W/2, 400, '#777', FONT, 'center');
 }
 
 function drawVictoryScreen() {
-  cx.fillStyle = '#060a00';
+  cx.fillStyle = '#f5fff5';
   cx.fillRect(0, 0, W, H);
 
   cx.save();
-  cx.shadowBlur = 50; cx.shadowColor = '#ffd700';
-  text('TYRANT PRIME', W/2, 135, '#ffd700', "bold 40px 'Space Mono',monospace", 'center');
-  text('DEFEATED!', W/2, 188, '#00ee88', "bold 36px 'Space Mono',monospace", 'center');
+  cx.shadowBlur = 20; cx.shadowColor = '#b8860b';
+  text('TYRANT PRIME', W/2, 135, '#b8860b', "bold 40px 'Space Mono',monospace", 'center');
+  text('DEFEATED!', W/2, 188, '#007744', "bold 36px 'Space Mono',monospace", 'center');
   cx.restore();
 
-  cx.strokeStyle = '#ffd70033'; cx.lineWidth = 1;
+  cx.strokeStyle = '#b8860b44'; cx.lineWidth = 1;
   cx.beginPath(); cx.moveTo(150, 200); cx.lineTo(W-150, 200); cx.stroke();
 
-  text('THE DUNGEON HAS BEEN CONQUERED', W/2, 248, '#888', FONT_SM, 'center');
-  text('CLASS: ' + (P.classId || '').toUpperCase(), W/2, 290, '#74b9ff', FONT, 'center');
-  text('HP REMAINING: ' + P.hp + '/' + P.maxHp, W/2, 320, P.hp < P.maxHp*0.3 ? '#e74c3c' : '#00b894', FONT, 'center');
-  text('Gold: ¢' + P.gold, W/2, 350, '#f39c12', FONT, 'center');
-  text('Upgrades: ' + (P.upgrades || []).length, W/2, 380, '#a29bfe', FONT, 'center');
+  text('THE DUNGEON HAS BEEN CONQUERED', W/2, 248, '#777', FONT_SM, 'center');
+  text('CLASS: ' + (P.classId || '').toUpperCase(), W/2, 290, '#2980b9', FONT, 'center');
+  text('HP REMAINING: ' + P.hp + '/' + P.maxHp, W/2, 320, P.hp < P.maxHp*0.3 ? '#e74c3c' : '#007a5f', FONT, 'center');
+  text('Gold: ¢' + P.gold, W/2, 350, '#c07000', FONT, 'center');
+  text('Upgrades: ' + (P.upgrades || []).length, W/2, 380, '#6c5ce7', FONT, 'center');
 
   const blink = Math.floor(Date.now() / 500) % 2 === 0;
-  if (blink) text('PRESS ENTER TO PLAY AGAIN', W/2, 440, '#00ee88', FONT, 'center');
+  if (blink) text('PRESS ENTER TO PLAY AGAIN', W/2, 440, '#007744', FONT, 'center');
 }
 
 // ── MAIN LOOP ──────────────────────────────────────────────────────────────────
