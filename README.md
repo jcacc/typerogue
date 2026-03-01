@@ -15,15 +15,17 @@ Open `index.html` in a browser. No build step, no server needed.
 | `1` / `2` / `3` | Cast spell (if unlocked) |
 | `← →` | Navigate map / class select |
 | `Enter` | Confirm / advance |
-| `Esc` | Pause |
+| `Esc` | Pause / back |
 | `M` | Mute music |
+| `L` | Toggle dark / light mode |
+| `I` | Instructions (from title) |
 
 ## Classes
 
 | Class | HP | Damage | Notes |
 |-------|----|--------|-------|
 | Warrior | 135 | 1.0× | Iron Skin passive — resilient |
-| Rogue | 65 | 1.5× | Quick Draw — combo builds faster, words come faster |
+| Rogue | 65 | 1.5× | Quick Draw — words come faster |
 | Mage | 85 | 1.15× | Spell Amp — starts with Freeze, spells deal 50% more |
 
 ## Structure
@@ -40,7 +42,7 @@ Three floors, each with two branching paths leading to a boss:
 
 Passives, spells, and deck modifiers are offered after each combat room.
 
-**Spells** are cast by typing their name or pressing their number key.
+**Spells** are cast by pressing their number key.
 
 | Spell | Effect | CD |
 |-------|--------|----|
@@ -50,6 +52,10 @@ Passives, spells, and deck modifiers are offered after each combat room.
 | Haste | Words slow 40% for 5s | 18s |
 | Drain | Steal 20 HP from enemy | 16s |
 | Blast | 80 flat damage | 22s |
+
+## Pickups
+
+Random symbol strings (`!@#$%`) drift across the screen during combat. Type them to collect a bonus: +HP, +gold, +shield, or +damage multiplier.
 
 ## Enemies
 
@@ -69,7 +75,7 @@ Passives, spells, and deck modifiers are offered after each combat room.
 
 ## Files
 
-- `index.html` — game logic and rendering (HTML5 Canvas)
+- `index.html` — game logic and DOM rendering
 - `rogue-data.js` — all static game data (enemies, upgrades, classes)
-- `rogue-audio.js` — procedural audio engine (three music themes + SFX)
+- `rogue-audio.js` — procedural dungeonsynth audio engine (three themes + SFX)
 - `words.js` — word pool (4 tiers by difficulty)
