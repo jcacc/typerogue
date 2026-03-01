@@ -561,8 +561,13 @@ function processKey(key) {
   if (G.screen === 'class_select') {
     if (key === 'ArrowLeft')  classSelectIdx = (classSelectIdx + 2) % 3;
     if (key === 'ArrowRight') classSelectIdx = (classSelectIdx + 1) % 3;
-    if (key === 'ArrowUp')    diffIdx = (diffIdx + DIFFICULTIES.length - 1) % DIFFICULTIES.length;
-    if (key === 'ArrowDown')  diffIdx = (diffIdx + 1) % DIFFICULTIES.length;
+    if (key === 'Enter')      { G.screen = 'difficulty_select'; }
+    return;
+  }
+  if (G.screen === 'difficulty_select') {
+    if (key === 'ArrowLeft')  diffIdx = (diffIdx + DIFFICULTIES.length - 1) % DIFFICULTIES.length;
+    if (key === 'ArrowRight') diffIdx = (diffIdx + 1) % DIFFICULTIES.length;
+    if (key === 'Escape')     { G.screen = 'class_select'; }
     if (key === 'Enter')      startRun(CLASS_IDS[classSelectIdx]);
     return;
   }
@@ -695,10 +700,6 @@ function renderClassSelect() {
   const tabs = CLASS_IDS.map((id, i) =>
     i === classSelectIdx ? wh('[ ' + RD.classes[id].name + ' ]') : dim('  ' + RD.classes[id].name + '  ')
   ).join('     ');
-  const diffTabs = DIFFICULTIES.map((d, i) =>
-    i === diffIdx ? wh('[ ' + d.label + ' ]') : dim('  ' + d.label + '  ')
-  ).join('   ');
-
   screen.innerHTML = [
     '',
     wh('   CHOOSE YOUR CLASS'),
@@ -715,13 +716,8 @@ function renderClassSelect() {
     sp('   spell:   ' + (cls.startSpell || 'none'), C.txt),
     '',
     dim('   ' + cls.desc),
-    '', '',
-    wh('   DIFFICULTY'),
-    dim('   ' + '─'.repeat(40)),
-    '',
-    '   ' + diffTabs,
-    '',
-    dim('   <- -> class    ↑ ↓ difficulty    ENTER confirm'),
+    '', '', '',
+    dim('   <- -> select    ENTER confirm'),
   ].join('\n');
   clear();
 }
@@ -970,6 +966,32 @@ function renderVictory() {
   clear();
 }
 
+function renderDifficultySelect() {
+  const d = DIFFICULTIES[diffIdx];
+  const tabs = DIFFICULTIES.map((df, i) =>
+    i === diffIdx ? wh('[ ' + df.label + ' ]') : dim('  ' + df.label + '  ')
+  ).join('   ');
+  const desc = {
+    beginner: 'slower words  ·  lower enemy hp  ·  more gold  ·  great for new players',
+    normal:   'the intended experience',
+    hard:     'faster words  ·  tougher enemies  ·  less gold  ·  no mercy',
+  };
+  screen.innerHTML = [
+    '',
+    wh('   CHOOSE DIFFICULTY'),
+    dim('   ' + '─'.repeat(40)),
+    '',
+    '   ' + tabs,
+    '',
+    dim('   ' + '─'.repeat(40)),
+    '',
+    dim('   ' + desc[d.id]),
+    '', '', '',
+    dim('   ESC back    <- -> select    ENTER begin'),
+  ].join('\n');
+  clear();
+}
+
 function renderInstructions() {
   screen.innerHTML = [
     '',
@@ -1012,7 +1034,8 @@ function loop(t) {
   switch (G.screen) {
     case 'title':         renderTitle();         break;
     case 'instructions':  renderInstructions();  break;
-    case 'class_select':  renderClassSelect();    break;
+    case 'class_select':      renderClassSelect();      break;
+    case 'difficulty_select': renderDifficultySelect(); break;
     case 'map':           renderMap();            break;
     case 'combat':        updateCombat(dt); renderCombat(); break;
     case 'upgrade':       renderUpgrade();        break;
