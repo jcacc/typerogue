@@ -13,7 +13,7 @@
       height:100vh; overflow:hidden;
       font-family:'Space Mono','Courier New',monospace;
     }
-    canvas { display:block; image-rendering:pixelated; border:1px solid #222; }
+    canvas { display:block; image-rendering:pixelated; }
   </style>
 </head>
 <body>
@@ -38,36 +38,29 @@ function resize() {
 }
 window.addEventListener('resize', resize); resize();
 
-// ── Color palette (monochrome terminal) ────────────────────────────────────────
+// ── Colors ─────────────────────────────────────────────────────────────────────
 const C = {
-  bg:       '#000000',   // pure black
-  bg2:      '#0a0a0a',
-  wall:     '#111111',
-  border:   '#333333',
-  bord2:    '#555555',
-  txt:      '#777777',   // grey text
-  hi:       '#aaaaaa',   // bright grey
-  dim:      '#333333',   // dim/inactive
-  gold:     '#886600',   // muted gold (score/coins only)
-  goldhi:   '#aa8822',
-  red:      '#993333',   // danger
-  redhi:    '#bb4444',
-  blue:     '#336699',
-  purple:   '#554488',
-  cyan:     '#225544',
-  white:    '#cccccc',
-  floorDot: '#0a0a0a',
+  bg:     '#000000',
+  txt:    '#666666',
+  hi:     '#aaaaaa',
+  dim:    '#333333',
+  white:  '#cccccc',
+  gold:   '#886600',
+  red:    '#993333',
+  blue:   '#336699',
+  purple: '#554488',
+  cyan:   '#226655',
 };
 
 // ── Constants ──────────────────────────────────────────────────────────────────
-const FONT     = "bold 15px 'Space Mono','Courier New',monospace";
-const FONT_SM  = "11px 'Space Mono','Courier New',monospace";
-const FONT_LG  = "bold 22px 'Space Mono','Courier New',monospace";
-const FONT_XL  = "bold 32px 'Space Mono','Courier New',monospace";
+const FONT    = "bold 15px 'Space Mono','Courier New',monospace";
+const FONT_SM = "11px 'Space Mono','Courier New',monospace";
+const FONT_LG = "bold 22px 'Space Mono','Courier New',monospace";
+const FONT_XL = "bold 32px 'Space Mono','Courier New',monospace";
 
 // Combat room bounds
-const RM = { x:30, y:50, w:740, h:390 };   // outer room rect
-const WALL = 28;                             // wall thickness
+const RM = { x:30, y:50, w:740, h:390 };
+const WALL = 28;
 const FLOOR_X1 = RM.x + WALL;
 const FLOOR_Y1 = RM.y + WALL;
 const FLOOR_X2 = RM.x + RM.w - WALL;
@@ -85,8 +78,6 @@ const WORD_EXIT_Y  = PLAYER_CY - 40;
 
 const LANE_X = [FLOOR_X1 + 95, W / 2, FLOOR_X2 - 95];
 
-const TILE = 36;
-
 const RD = window.ROGUE_DATA;
 const RA = window.ROGUE_AUDIO;
 
@@ -94,7 +85,6 @@ const RA = window.ROGUE_AUDIO;
 let crtEnabled = false;
 
 // ── ASCII Sprites ──────────────────────────────────────────────────────────────
-// 3 lines centered at entity position; line 1 is the "main" row (entity color)
 const ASCII_ENEMY = {
   goblin_scout:   [' .o. ', '(o_o)', ' |g| '],
   cave_troll:     [' _O_ ', '[T_T]', ' )_( '],
@@ -130,7 +120,7 @@ const CLASS_IDS = ['warrior', 'rogue', 'mage'];
 let mapNodes = [], mapCurIdx = 0, mapSelIdx = 0;
 
 let words = [], typed = '', activeWordIdx = -1;
-let enemy = null, enemyPhase = 0;
+let enemy = null;
 let combatTick = 0, spawnTimer = 0, attackTimer = 0;
 let freezeTimer = 0, hasteTimer = 0, flashTimer = 0;
 let flashMsg = '', flashColor = '#fff';
@@ -141,24 +131,24 @@ let P = {};
 
 let upgradeOptions = [], upgradeChosen = false;
 
-let particles = [], floats = [];
+// Float text only (no particles)
+let floats = [];
 
 let paused = false;
 
 // ── Map room type metadata ─────────────────────────────────────────────────────
 const ROOM_TYPE_META = {
-  combat:  { icon:'[!]', label:'Combat',  color: C.red,    bgColor:'rgba(40,10,10,0.9)'  },
-  elite:   { icon:'[%]', label:'Elite',   color: C.purple, bgColor:'rgba(20,10,40,0.9)'  },
-  shop:    { icon:'[$]', label:'Shop',    color: C.gold,   bgColor:'rgba(30,25,5,0.9)'   },
-  rest:    { icon:'[+]', label:'Rest',    color: C.cyan,   bgColor:'rgba(5,25,20,0.9)'   },
-  boss:    { icon:'[B]', label:'BOSS',    color:'#ff44aa', bgColor:'rgba(40,5,20,0.9)'   },
-  entry:   { icon:'[>]', label:'Start',   color: C.blue,   bgColor:'rgba(5,15,35,0.9)'   },
+  combat:  { icon:'!', label:'Combat',  color: C.red    },
+  elite:   { icon:'%', label:'Elite',   color: C.purple },
+  shop:    { icon:'$', label:'Shop',    color: C.gold   },
+  rest:    { icon:'+', label:'Rest',    color: C.cyan   },
+  boss:    { icon:'B', label:'BOSS',    color:'#993366' },
+  entry:   { icon:'>', label:'Start',   color: C.blue   },
 };
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 function rnd(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
-function lerp(a, b, t) { return a + (b - a) * t; }
 
 function pickWord() {
   const tiers = window.TYPERUN_WORDS.tiers;
@@ -176,18 +166,7 @@ function pickWord() {
   return rnd(fresh.length ? fresh : pool) || 'bash';
 }
 
-// ── Drawing primitives ─────────────────────────────────────────────────────────
-function rect(x, y, w, h, fill, stroke, lw) {
-  if (fill) { cx.fillStyle = fill; cx.fillRect(x, y, w, h); }
-  if (stroke) { cx.strokeStyle = stroke; cx.lineWidth = lw || 1; cx.strokeRect(x, y, w, h); }
-}
-
-// Square-cornered version (ASCII aesthetic — no rounded corners)
-function roundRect(x, y, w, h, r, fill, stroke, lw) {
-  if (fill) { cx.fillStyle = fill; cx.fillRect(x, y, w, h); }
-  if (stroke) { cx.strokeStyle = stroke; cx.lineWidth = lw || 1; cx.strokeRect(x, y, w, h); }
-}
-
+// ── Text helpers ───────────────────────────────────────────────────────────────
 function text(str, x, y, color, font, align) {
   cx.fillStyle = color || C.txt;
   cx.font = font || FONT;
@@ -196,67 +175,64 @@ function text(str, x, y, color, font, align) {
   cx.textAlign = 'left';
 }
 
-function hpBar(x, y, w, h, hp, maxHp, color) {
-  rect(x, y, w, h, '#111122');
-  const pct = clamp(hp / maxHp, 0, 1);
-  if (pct > 0) rect(x, y, w * pct, h, color);
-  rect(x, y, w, h, null, '#333355', 1);
-}
-
 function wrapText(str, x, y, maxW, lineH, align) {
   const ws = str.split(' ');
-  let line = '';
-  let lineY = y;
+  let line = '', lineY = y;
   cx.textAlign = align || 'left';
   ws.forEach(w => {
     const test = line + (line ? ' ' : '') + w;
     if (cx.measureText(test).width > maxW && line) {
       cx.fillText(line, align === 'center' ? x + maxW/2 : x, lineY);
       line = w; lineY += lineH;
-    } else {
-      line = test;
-    }
+    } else { line = test; }
   });
   if (line) cx.fillText(line, align === 'center' ? x + maxW/2 : x, lineY);
   cx.textAlign = 'left';
 }
 
+// ASCII HP bar: [====....] hp/max
+function asciiBar(x, y, hp, maxHp, label) {
+  const pct = clamp(hp / maxHp, 0, 1);
+  const n = 16;
+  const filled = Math.round(pct * n);
+  const bar = '[' + '='.repeat(filled) + '.'.repeat(n - filled) + ']';
+  const col = hp < maxHp * 0.3 ? C.red : (hp < maxHp * 0.6 ? C.gold : C.txt);
+  const line = (label ? label + ' ' : '') + bar + ' ' + hp + '/' + maxHp;
+  cx.fillStyle = col;
+  cx.font = FONT_SM;
+  cx.fillText(line, x, y);
+}
+
 // ── Box-drawing dungeon room ───────────────────────────────────────────────────
 const BOX_FONT = "14px 'Space Mono','Courier New',monospace";
-const BOX_CW = 8.4;    // approx char width at 14px Space Mono
-const BOX_CH = 18;     // line height
+const BOX_CW = 8.4;
+const BOX_CH = 18;
 
 function drawDungeonRoom() {
-  // Dark fill
-  cx.fillStyle = C.bg;
-  cx.fillRect(RM.x, RM.y, RM.w, RM.h);
-
   cx.font = BOX_FONT;
   cx.textAlign = 'left';
 
-  const cols = Math.round(RM.w / BOX_CW); // ~88
+  const cols = Math.round(RM.w / BOX_CW);
   const rows = 21;
   const x0 = RM.x;
-  const y0 = RM.y + BOX_CH - 4; // baseline of row 0 ≈ y=64
+  const y0 = RM.y + BOX_CH - 4;
 
-  // Top/bottom borders
-  cx.fillStyle = C.border;
+  cx.fillStyle = C.dim;
   cx.fillText('╔' + '═'.repeat(cols - 2) + '╗', x0, y0);
   cx.fillText('╚' + '═'.repeat(cols - 2) + '╝', x0, y0 + (rows - 1) * BOX_CH);
 
-  // Side walls
   for (let r = 1; r < rows - 1; r++) {
     cx.fillText('║', x0, y0 + r * BOX_CH);
     cx.fillText('║', x0 + (cols - 1) * BOX_CW, y0 + r * BOX_CH);
   }
 
-  // Middle divider (row 10 ≈ y=244, close to room midpoint)
+  // Middle divider
   const midRow = 10;
-  cx.fillStyle = C.wall;
+  cx.fillStyle = '#1a1a1a';
   cx.fillText('╟' + '─'.repeat(cols - 2) + '╢', x0, y0 + midRow * BOX_CH);
 
-  // Floor dots (very dim)
-  cx.fillStyle = C.floorDot;
+  // Floor dots
+  cx.fillStyle = '#0d0d0d';
   for (let r = 2; r < rows - 1; r++) {
     if (r === midRow) continue;
     for (let c = 3; c < cols - 2; c += 4) {
@@ -270,66 +246,48 @@ function drawTorch(x, y) {
   const flicker = Math.sin(combatTick * 0.02 + x) > 0;
   cx.font = "bold 11px 'Space Mono',monospace";
   cx.textAlign = 'center';
-  cx.fillStyle = flicker ? '#886622' : '#664400';
+  cx.fillStyle = flicker ? '#664422' : '#443311';
   cx.fillText(flicker ? '^' : '*', x, y - 6);
-  cx.fillStyle = '#443311';
+  cx.fillStyle = '#332211';
   cx.fillText('|', x, y + 4);
   cx.textAlign = 'left';
 }
 
-function drawAsciiTorch(x, y, tick) {
-  const flicker = Math.sin(tick * 0.07 + x) > 0;
-  cx.font = "bold 13px 'Space Mono',monospace";
-  cx.textAlign = 'center';
-  cx.fillStyle = flicker ? '#886622' : '#664400';
-  cx.fillText(flicker ? '^' : '*', x, y - 5);
-  cx.fillStyle = '#443311';
-  cx.fillText('|', x, y + 7);
-  cx.textAlign = 'left';
-}
-
-// ── Enemy sprite (ASCII art) ───────────────────────────────────────────────────
+// ── Entity sprites ─────────────────────────────────────────────────────────────
 function drawEnemy(enemyData, x, y, hp, maxHp, phase) {
   const bob = Math.sin(combatTick * 0.006) * 2;
   const sprite = ASCII_ENEMY[enemyData.id] || ['[???]', ' (?) ', '  ?  '];
 
-  cx.save();
   cx.font = "bold 13px 'Space Mono','Courier New',monospace";
   cx.textAlign = 'center';
-
   sprite.forEach((line, i) => {
-    cx.fillStyle = i === 1 ? (enemyData.color || C.red) : C.border;
+    cx.fillStyle = i === 1 ? (enemyData.color || C.red) : C.dim;
     cx.fillText(line, x, y + bob + (i - 1) * 15);
   });
 
   if (phase > 0) {
     cx.font = "bold 9px 'Space Mono',monospace";
-    cx.fillStyle = '#e84393';
+    cx.fillStyle = '#993366';
     cx.fillText('** PHASE **', x, y + bob - 28);
   }
-
-  cx.restore();
+  cx.textAlign = 'left';
 }
 
-// ── Player sprite (ASCII art) ─────────────────────────────────────────────────
 function drawPlayer(classId, x, y) {
   const bob = Math.sin(combatTick * 0.007) * 1.5;
   const sprite = ASCII_PLAYER[classId] || [' [@] ', '  @  ', '  Y  '];
   const clsColor = RD.classes[classId] ? RD.classes[classId].color : C.hi;
 
-  cx.save();
   cx.font = "bold 13px 'Space Mono','Courier New',monospace";
   cx.textAlign = 'center';
-
   sprite.forEach((line, i) => {
-    cx.fillStyle = i === 1 ? clsColor : C.txt;
+    cx.fillStyle = i === 1 ? clsColor : C.dim;
     cx.fillText(line, x, y + bob + (i - 1) * 15);
   });
-
-  cx.restore();
+  cx.textAlign = 'left';
 }
 
-// ── Words in combat ────────────────────────────────────────────────────────────
+// ── Words ──────────────────────────────────────────────────────────────────────
 function drawWords() {
   cx.font = FONT;
   words.forEach((w, i) => {
@@ -348,7 +306,7 @@ function drawWords() {
       cx.fillStyle = C.white;
       cx.fillText(done, dx, w.y);
       dx += cx.measureText(done).width;
-      cx.fillStyle = isAttack ? C.redhi : C.dim;
+      cx.fillStyle = isAttack ? C.red : C.dim;
       cx.fillText(rest, dx, w.y);
     } else {
       cx.textAlign = 'center';
@@ -359,30 +317,12 @@ function drawWords() {
   });
 }
 
-// ── Particles ──────────────────────────────────────────────────────────────────
-function spawnParticles(x, y, color, count) {
-  for (let i = 0; i < count; i++) {
-    const ang = Math.random() * Math.PI * 2;
-    const spd = 1.5 + Math.random() * 3;
-    particles.push({
-      x, y, vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd,
-      life: 1, decay: 0.03 + Math.random() * 0.04,
-      size: 2 + Math.random() * 4, color,
-    });
-  }
-}
-
+// ── Float text ─────────────────────────────────────────────────────────────────
 function spawnFloat(x, y, str, color) {
   floats.push({ x, y, str, color, life: 1, vy: -1.2 });
 }
 
-function updateParticles(dt) {
-  for (let i = particles.length - 1; i >= 0; i--) {
-    const p = particles[i];
-    p.x += p.vx; p.y += p.vy; p.vy += 0.05;
-    p.life -= p.decay;
-    if (p.life <= 0) particles.splice(i, 1);
-  }
+function updateFloats(dt) {
   for (let i = floats.length - 1; i >= 0; i--) {
     const f = floats[i];
     f.y += f.vy; f.life -= 0.018;
@@ -390,15 +330,10 @@ function updateParticles(dt) {
   }
 }
 
-function drawParticles() {
-  particles.forEach(p => {
-    cx.globalAlpha = p.life;
-    cx.fillStyle = p.color;
-    cx.beginPath(); cx.arc(p.x, p.y, p.size * p.life, 0, Math.PI*2); cx.fill();
-  });
+function drawFloats() {
   floats.forEach(f => {
     cx.globalAlpha = f.life;
-    cx.font = "bold 14px 'Space Mono',monospace";
+    cx.font = "bold 13px 'Space Mono',monospace";
     cx.textAlign = 'center';
     cx.fillStyle = f.color;
     cx.fillText(f.str, f.x, f.y);
@@ -407,23 +342,17 @@ function drawParticles() {
   cx.globalAlpha = 1;
 }
 
-// ── CRT Overlay ────────────────────────────────────────────────────────────────
+// ── CRT overlay ────────────────────────────────────────────────────────────────
 function drawCRTOverlay() {
   if (!crtEnabled) return;
-
-  // Scanlines
-  cx.globalAlpha = 0.15;
+  cx.globalAlpha = 0.14;
   cx.fillStyle = '#000';
-  for (let sy = 0; sy < H; sy += 3) {
-    cx.fillRect(0, sy, W, 1);
-  }
+  for (let sy = 0; sy < H; sy += 3) cx.fillRect(0, sy, W, 1);
   cx.globalAlpha = 1;
-
-  // Occasional flicker line
   if (Math.random() < 0.008) {
     cx.globalAlpha = 0.05;
     cx.fillStyle = '#ffffff';
-    cx.fillRect(0, Math.floor(Math.random() * H), W, 1 + Math.floor(Math.random() * 2));
+    cx.fillRect(0, Math.floor(Math.random() * H), W, 1);
     cx.globalAlpha = 1;
   }
 }
@@ -439,16 +368,13 @@ function generateFloor(floorNum) {
   }
 
   nodes.push(mkNode('entry', null, 1, 0));
-
   nodes.push(mkNode('combat', normalPool[0] || 'goblin_scout', 0, 1));
   const hasShopA = Math.random() < 0.5;
   nodes.push(mkNode(hasShopA ? 'shop' : 'rest', null, 0, 2));
   nodes.push(mkNode('combat', normalPool[1] || normalPool[0], 0, 3));
-
   nodes.push(mkNode('combat', normalPool[2] || normalPool[1] || normalPool[0], 2, 1));
   nodes.push(mkNode('elite', FE.elite[0], 2, 2));
   nodes.push(mkNode(hasShopA ? 'rest' : 'shop', null, 2, 3));
-
   nodes.push(mkNode('boss', FE.boss, 1, 4));
 
   const adj = {
@@ -477,103 +403,90 @@ function getReachable() {
   return mapNodes.filter(n => n.reachable && !n.cleared);
 }
 
+function getNodePos() {
+  const colX = [180, W/2, 620];
+  const rowY  = [95, 185, 270, 355, 445];
+  return mapNodes.map(n => ({ x: colX[n.col], y: rowY[n.row] }));
+}
+
 function drawMapScreen() {
   cx.fillStyle = C.bg;
   cx.fillRect(0, 0, W, H);
 
-  // Title bar
-  cx.fillStyle = C.bg2;
-  cx.fillRect(0, 0, W, 44);
-  cx.strokeStyle = C.border; cx.lineWidth = 1;
-  cx.strokeRect(0, 0, W, 44);
   text('FLOOR ' + (P.floor || 1), 20, 28, C.dim, FONT_SM);
-  text('DUNGEON MAP', W/2, 28, C.gold, "bold 16px 'Space Mono',monospace", 'center');
-  text('HP: ' + P.hp + '/' + P.maxHp, W - 20, 28, P.hp < P.maxHp * 0.3 ? C.red : C.hi, FONT_SM, 'right');
+  text('DUNGEON MAP', W/2, 28, C.hi, "bold 15px 'Space Mono',monospace", 'center');
+  text('HP: ' + P.hp + '/' + P.maxHp, W - 20, 28, P.hp < P.maxHp * 0.3 ? C.red : C.txt, FONT_SM, 'right');
+
+  const divLine = '─'.repeat(97);
+  text(divLine, W/2, 38, C.dim, FONT_SM, 'center');
 
   const nodePos = getNodePos();
 
-  // Draw corridors
+  // ASCII corridors
+  cx.font = "12px 'Space Mono',monospace";
+  cx.fillStyle = C.dim;
+  const CH = 14;
   Object.entries(G.mapAdj || {}).forEach(([from, tos]) => {
     const fp = nodePos[+from];
     tos.forEach(to => {
       const tp = nodePos[to];
-      cx.strokeStyle = C.border;
-      cx.lineWidth = 1;
-      cx.setLineDash([4, 6]);
-      cx.beginPath(); cx.moveTo(fp.x, fp.y); cx.lineTo(tp.x, tp.y); cx.stroke();
-      cx.setLineDash([]);
+      const dy = tp.y - fp.y;
+      const dx = tp.x - fp.x;
+      const steps = Math.round(dy / CH);
+      const char = Math.abs(dx) < 10 ? '|' : (dx > 0 ? '\\' : '/');
+      cx.textAlign = 'center';
+      for (let s = 1; s < steps; s++) {
+        const t = s / steps;
+        cx.fillText(char, fp.x + dx * t, fp.y + CH * s - 2);
+      }
     });
   });
 
-  // Draw nodes (ASCII box style)
+  // Nodes (text only)
+  cx.font = "bold 12px 'Space Mono',monospace";
   mapNodes.forEach((node, i) => {
     const p = nodePos[i];
     const meta = ROOM_TYPE_META[node.type] || ROOM_TYPE_META.combat;
     const isSelected = (i === mapSelIdx);
-    const isCurrent = (i === mapCurIdx);
+    const isCurrent  = (i === mapCurIdx);
     const isReachable = node.reachable && !node.cleared;
-    const isCleared = node.cleared && i !== mapCurIdx;
+    const isCleared  = node.cleared;
 
-    const nodeW = 72, nodeH = 48;
-    const nx = p.x - nodeW/2, ny = p.y - nodeH/2;
-
-    cx.globalAlpha = isCleared ? 0.3 : (isReachable ? 1 : 0.45);
-
-    // Node fill
-    cx.fillStyle = meta.bgColor || C.bg2;
-    cx.fillRect(nx, ny, nodeW, nodeH);
-
-    // Border
-    cx.strokeStyle = isSelected ? C.goldhi : (isReachable ? meta.color : C.border);
-    cx.lineWidth = isSelected ? 2 : 1;
-    cx.strokeRect(nx, ny, nodeW, nodeH);
-
-    // Icon
-    cx.font = "bold 12px 'Space Mono',monospace";
+    cx.globalAlpha = isCleared ? 0.3 : (isReachable ? 1 : 0.4);
     cx.textAlign = 'center';
-    cx.fillStyle = isCleared ? C.dim : meta.color;
-    cx.fillText(meta.icon, p.x, p.y - 2);
 
-    // Label
-    cx.font = "bold 9px 'Space Mono',monospace";
-    cx.fillStyle = isCleared ? C.dim : (isSelected ? C.goldhi : C.txt);
+    // Selection brackets
+    if (isSelected) {
+      cx.fillStyle = C.white;
+      cx.fillText('[', p.x - 18, p.y);
+      cx.fillText(']', p.x + 18, p.y);
+    }
+
+    cx.fillStyle = isCleared ? C.dim : (isSelected ? C.white : meta.color);
+    cx.fillText(meta.icon, p.x, p.y);
+
+    cx.font = "9px 'Space Mono',monospace";
+    cx.fillStyle = isCleared ? C.dim : (isSelected ? C.white : C.txt);
     cx.fillText(meta.label.toUpperCase(), p.x, p.y + 14);
 
-    cx.textAlign = 'left';
+    if (isCurrent && !isCleared) {
+      cx.font = "bold 9px 'Space Mono',monospace";
+      cx.fillStyle = C.dim;
+      cx.fillText('YOU', p.x, p.y - 14);
+    }
+
+    cx.font = "bold 12px 'Space Mono',monospace";
     cx.globalAlpha = 1;
-
-    // Cleared strikethrough
-    if (isCleared) {
-      cx.strokeStyle = C.dim; cx.lineWidth = 1;
-      cx.beginPath(); cx.moveTo(nx+4, ny+4); cx.lineTo(nx+nodeW-4, ny+nodeH-4); cx.stroke();
-      cx.beginPath(); cx.moveTo(nx+nodeW-4, ny+4); cx.lineTo(nx+4, ny+nodeH-4); cx.stroke();
-    }
-
-    if (isCurrent) {
-      cx.fillStyle = C.blue;
-      cx.font = "10px 'Space Mono',monospace";
-      cx.textAlign = 'center';
-      cx.fillText('YOU', p.x, ny - 6);
-      cx.textAlign = 'left';
-    }
   });
 
-  // Controls bar
-  cx.fillStyle = C.bg2;
-  cx.fillRect(0, H - 36, W, 36);
-  cx.strokeStyle = C.border; cx.lineWidth = 1;
-  cx.strokeRect(0, H - 36, W, 36);
-  text('← → navigate rooms    ENTER: enter selected room', W/2, H - 12, C.dim, FONT_SM, 'center');
+  cx.textAlign = 'left';
 
+  const divLine2 = '─'.repeat(97);
+  text(divLine2, W/2, H - 26, C.dim, FONT_SM, 'center');
+  text('<- -> navigate    ENTER enter room', W/2, H - 10, C.dim, FONT_SM, 'center');
   if (P.spells && P.spells.length > 0) {
-    text('Spells: ' + P.spells.map(s => s.toUpperCase()).join(' · '), 20, H - 12, C.purple, FONT_SM);
+    text('spells: ' + P.spells.join(' '), 20, H - 10, C.dim, FONT_SM);
   }
-}
-
-function getNodePos() {
-  const colX = [180, W/2, 620];
-  const rowY = [95, 185, 270, 355, 445];
-  return mapNodes.map(n => ({ x: colX[n.col], y: rowY[n.row] }));
 }
 
 function mapNavigate(dir) {
@@ -583,8 +496,7 @@ function mapNavigate(dir) {
     .sort((a, b) => a.i - b.i);
   if (!reachable.length) return;
   const cur = reachable.findIndex(r => r.i === mapSelIdx);
-  let next = (cur + dir + reachable.length) % reachable.length;
-  mapSelIdx = reachable[next].i;
+  mapSelIdx = reachable[(cur + dir + reachable.length) % reachable.length].i;
 }
 
 // ── COMBAT INIT ────────────────────────────────────────────────────────────────
@@ -602,26 +514,18 @@ function initCombat(enemyId) {
     hitFlash: 0,
   };
 
-  words = [];
-  typed = '';
-  activeWordIdx = -1;
+  words = []; typed = ''; activeWordIdx = -1;
   combatTick = 0;
-  spawnTimer = enemy.effectiveInterval * 0.5;
+  spawnTimer  = enemy.effectiveInterval * 0.5;
   attackTimer = enemy.attackInterval * 0.7;
-  freezeTimer = 0;
-  hasteTimer = 0;
-  flashTimer = 0;
+  freezeTimer = 0; hasteTimer = 0; flashTimer = 0;
   flashMsg = '';
   scrambleTimer = eData.special === 'scramble' ? 15000 : 0;
   invisWordCount = 0;
-  particles = [];
   floats = [];
   paused = false;
 
-  if (eData.type === 'boss') {
-    RA.setTheme('boss');
-  }
-
+  if (eData.type === 'boss') RA.setTheme('boss');
   G.screen = 'combat';
 }
 
@@ -662,16 +566,13 @@ function updateCombat(dt) {
         if (P.shield > 0) {
           const absorbed = Math.min(dmg, P.shield);
           P.shield -= absorbed; dmg -= absorbed;
-          spawnFloat(PLAYER_CX, PLAYER_CY - 30, `-${absorbed} absorbed`, C.blue);
+          spawnFloat(PLAYER_CX, PLAYER_CY - 30, `-${absorbed}shld`, C.blue);
         }
         if (dmg > 0) {
           P.hp = Math.max(0, P.hp - dmg);
           RA.playPlayerHit();
           spawnFloat(PLAYER_CX, PLAYER_CY - 30, `-${dmg}`, C.red);
-          spawnParticles(PLAYER_CX, PLAYER_CY, C.red, 8);
-          flashTimer = 400;
-          flashMsg = `-${dmg} HP`;
-          flashColor = C.red;
+          flashTimer = 400; flashMsg = `-${dmg} HP`; flashColor = C.red;
         }
         if (i === activeWordIdx) { typed = ''; activeWordIdx = -1; }
       }
@@ -696,69 +597,51 @@ function updateCombat(dt) {
   if (enemy.phases && enemy.phases.length > 0) {
     const enemyMaxHp = RD.enemies[enemy.id].hp;
     enemy.phases.forEach((ph, idx) => {
-      if (!enemy.phasesFired.has(idx) &&
-          enemy.hp / enemyMaxHp <= ph.hpThreshold) {
+      if (!enemy.phasesFired.has(idx) && enemy.hp / enemyMaxHp <= ph.hpThreshold) {
         enemy.phasesFired.add(idx);
-        enemy.effectiveSpeed *= (ph.speedMult || 1);
+        enemy.effectiveSpeed   *= (ph.speedMult || 1);
         enemy.effectiveInterval *= (ph.intervalMult || 1);
         enemy.currentPhase = idx + 1;
         RA.playBossPhase();
         flashMsg = ph.announce || 'PHASE CHANGE!';
-        flashColor = '#e84393';
+        flashColor = '#993366';
         flashTimer = 2000;
-        spawnFloat(W/2, H/2, ph.announce || 'PHASE!', '#e84393');
-        spawnParticles(ENEMY_CX, ENEMY_CY, '#e84393', 20);
+        spawnFloat(W/2, H/2, ph.announce || 'PHASE!', '#993366');
       }
     });
   }
 
-  updateParticles(dt);
+  updateFloats(dt);
 
   if (P.hp <= 0) {
     if (P.deathless && !P.deathlessUsed) {
-      P.hp = 1;
-      P.deathlessUsed = true;
-      flashMsg = 'DEATHLESS!';
-      flashColor = '#fd79a8';
-      flashTimer = 1500;
+      P.hp = 1; P.deathlessUsed = true;
+      flashMsg = 'DEATHLESS!'; flashColor = '#993366'; flashTimer = 1500;
     } else {
-      RA.playGameOver();
-      RA.stopMusic(1.5);
-      G.screen = 'gameover';
-      return;
+      RA.playGameOver(); RA.stopMusic(1.5);
+      G.screen = 'gameover'; return;
     }
   }
 
   if (enemy.hp <= 0) {
-    enemy.hp = 0;
-    words = [];
+    enemy.hp = 0; words = [];
     RA.playRoomClear();
     P.gold = (P.gold || 0) + (enemy.loot && enemy.loot.gold || 0);
     mapNodes[G.combatNodeIdx].cleared = true;
     (G.mapAdj[G.combatNodeIdx] || []).forEach(i => { mapNodes[i].reachable = true; });
     mapSelIdx = (G.mapAdj[G.combatNodeIdx] || [])[0] || 0;
-
-    if (P.regenPerRoom) {
-      P.hp = Math.min(P.maxHp, P.hp + P.regenPerRoom);
-    }
+    if (P.regenPerRoom) P.hp = Math.min(P.maxHp, P.hp + P.regenPerRoom);
 
     if (enemy.type === 'boss') {
       if (enemy.id === 'tyrant_prime') {
-        G.screen = 'victory';
-        RA.playVictory();
-        RA.stopMusic(2);
-        return;
+        G.screen = 'victory'; RA.playVictory(); RA.stopMusic(2); return;
       }
       P.floor = (P.floor || 1) + 1;
-      RA.setTheme('dungeon');
-      G.screen = 'combat_result';
+      RA.setTheme('dungeon'); G.screen = 'combat_result';
     } else {
-      G.screen = 'upgrade';
-      RA.setTheme('dungeon');
+      G.screen = 'upgrade'; RA.setTheme('dungeon');
     }
-
-    upgradeOptions = pickUpgrades(3);
-    upgradeChosen = false;
+    upgradeOptions = pickUpgrades(3); upgradeChosen = false;
   }
 }
 
@@ -784,19 +667,15 @@ function spawnCombatWord(isAttack) {
 }
 
 function updateActiveWord() {
-  if (typed.length === 0) {
-    activeWordIdx = -1;
-    return;
-  }
-  const idx = words.findIndex(w => w.text.startsWith(typed));
-  activeWordIdx = idx;
+  if (typed.length === 0) { activeWordIdx = -1; return; }
+  activeWordIdx = words.findIndex(w => w.text.startsWith(typed));
 }
 
-// ── KEYBOARD INPUT ─────────────────────────────────────────────────────────────
+// ── INPUT ──────────────────────────────────────────────────────────────────────
 function processKey(key) {
   if (G.screen === 'title') {
     if (key === 'Enter') { G.screen = 'class_select'; RA.startMusic('dungeon'); }
-    if (key === 'c' || key === 'C') { crtEnabled = !crtEnabled; }
+    if (key === 'c' || key === 'C') crtEnabled = !crtEnabled;
     return;
   }
 
@@ -812,9 +691,7 @@ function processKey(key) {
     if (key === 'ArrowRight') mapNavigate(1);
     if (key === 'Enter') {
       const node = mapNodes[mapSelIdx];
-      if (node && node.reachable && !node.cleared) {
-        enterNode(mapSelIdx);
-      }
+      if (node && node.reachable && !node.cleared) enterNode(mapSelIdx);
     }
     return;
   }
@@ -829,52 +706,31 @@ function processKey(key) {
 
     if (P.spells && P.spells.length > 0) {
       const spellIdx = parseInt(key) - 1;
-      if (spellIdx >= 0 && spellIdx < P.spells.length) {
-        activateSpell(spellIdx);
-        return;
-      }
+      if (spellIdx >= 0 && spellIdx < P.spells.length) { activateSpell(spellIdx); return; }
     }
 
-    if (key === 'Backspace') {
-      typed = typed.slice(0, -1);
-      updateActiveWord();
-      return;
-    }
-
+    if (key === 'Backspace') { typed = typed.slice(0, -1); updateActiveWord(); return; }
     if (key.length !== 1) return;
 
     const nextTyped = typed + key;
 
     if (P.spells) {
       const spIdx = P.spells.findIndex(s => s === nextTyped);
-      if (spIdx >= 0) {
-        activateSpell(spIdx);
-        typed = '';
-        activeWordIdx = -1;
-        return;
-      }
+      if (spIdx >= 0) { activateSpell(spIdx); typed = ''; activeWordIdx = -1; return; }
     }
 
     const match = words.find(w => w.text.startsWith(nextTyped));
     if (match) {
-      typed = nextTyped;
-      RA.playKeyCorrect();
-      updateActiveWord();
-      if (match.text === typed) {
-        destroyWord(words.indexOf(match));
-      }
+      typed = nextTyped; RA.playKeyCorrect(); updateActiveWord();
+      if (match.text === typed) destroyWord(words.indexOf(match));
     } else {
       RA.playKeyWrong();
       if (typed.length > 0) typed = '';
       const single = words.find(w => w.text.startsWith(key));
       if (single) {
-        typed = key;
-        updateActiveWord();
+        typed = key; updateActiveWord();
         if (single.text === typed) destroyWord(words.indexOf(single));
-      } else {
-        typed = '';
-        activeWordIdx = -1;
-      }
+      } else { typed = ''; activeWordIdx = -1; }
     }
     return;
   }
@@ -883,35 +739,23 @@ function processKey(key) {
     if (!upgradeChosen && G.screen === 'upgrade') {
       const idx = parseInt(key) - 1;
       if (idx >= 0 && idx < upgradeOptions.length) {
-        applyUpgrade(upgradeOptions[idx]);
-        upgradeChosen = true;
-        RA.playUpgradePick();
-        setTimeout(() => {
-          RA.setTheme('dungeon');
-          G.screen = 'map';
-        }, 700);
+        applyUpgrade(upgradeOptions[idx]); upgradeChosen = true; RA.playUpgradePick();
+        setTimeout(() => { RA.setTheme('dungeon'); G.screen = 'map'; }, 700);
       }
-    } else if (G.screen === 'combat_result') {
-      if (key === 'Enter') {
-        buildMap();
-        RA.setTheme('dungeon');
-        G.screen = 'map';
-      }
+    } else if (G.screen === 'combat_result' && key === 'Enter') {
+      buildMap(); RA.setTheme('dungeon'); G.screen = 'map';
     }
     return;
   }
 
   if (G.screen === 'shop') {
     if (key === 'Escape') { G.screen = 'map'; return; }
-    if (key === 'ArrowUp') G.shopIdx = Math.max(0, (G.shopIdx || 0) - 1);
+    if (key === 'ArrowUp')   G.shopIdx = Math.max(0, (G.shopIdx || 0) - 1);
     if (key === 'ArrowDown') G.shopIdx = Math.min((G.shopItems || []).length - 1, (G.shopIdx || 0) + 1);
     if (key === 'Enter') {
       const item = (G.shopItems || [])[(G.shopIdx || 0)];
       if (item && P.gold >= item.cost && !item.owned) {
-        P.gold -= item.cost;
-        applyUpgrade(item.upgrade);
-        item.owned = true;
-        RA.playUpgradePick();
+        P.gold -= item.cost; applyUpgrade(item.upgrade); item.owned = true; RA.playUpgradePick();
       }
     }
     return;
@@ -929,7 +773,7 @@ function processKey(key) {
   }
 
   if (G.screen === 'gameover' || G.screen === 'victory') {
-    if (key === 'Enter') { G.screen = 'title'; }
+    if (key === 'Enter') G.screen = 'title';
     return;
   }
 }
@@ -940,25 +784,20 @@ function destroyWord(idx) {
   let dmg = Math.ceil(w.text.length * P.dmgMult);
   if (P.longshot && w.text.length >= 8) dmg *= 3;
   if (P.upgrades && P.upgrades.includes('dk_chaos')) dmg *= 2;
-  if (P.berserk && P.hp < P.maxHp * 0.3) dmg = Math.ceil(dmg * (1 + 0.75));
+  if (P.berserk && P.hp < P.maxHp * 0.3) dmg = Math.ceil(dmg * 1.75);
 
   enemy.hp = Math.max(0, enemy.hp - dmg);
-  enemy.hitFlash = 300;
-
-  RA.playWordDestroy();
-  RA.playEnemyHit();
-  spawnParticles(w.x, w.y, C.gold, 8);
+  RA.playWordDestroy(); RA.playEnemyHit();
   spawnFloat(w.x, w.y - 20, `-${dmg}`, C.gold);
 
   if (P.vampiric) {
     P.hp = Math.min(P.maxHp, P.hp + 2);
-    spawnFloat(PLAYER_CX + 20, PLAYER_CY - 20, '+2', C.hi);
+    spawnFloat(PLAYER_CX + 20, PLAYER_CY - 20, '+2', C.txt);
   }
 
   words.splice(idx, 1);
   if (activeWordIdx >= idx) activeWordIdx = Math.max(-1, activeWordIdx - 1);
-  typed = '';
-  updateActiveWord();
+  typed = ''; updateActiveWord();
 }
 
 function activateSpell(spellIdx) {
@@ -980,14 +819,13 @@ function activateSpell(spellIdx) {
       break;
     case 'shield':
       P.shield = (P.shield || 0) + Math.floor(30 * amp);
-      spawnFloat(PLAYER_CX, PLAYER_CY - 30, `SHIELD +${Math.floor(30*amp)}`, C.blue);
+      spawnFloat(PLAYER_CX, PLAYER_CY - 30, `SHIELD+${Math.floor(30*amp)}`, C.blue);
       break;
     case 'nova': {
       const wCount = words.length;
       const novaDmg = Math.floor(15 * amp);
       enemy.hp = Math.max(0, enemy.hp - wCount * novaDmg);
-      spawnParticles(W/2, (FLOOR_Y1+FLOOR_Y2)/2, '#fd79a8', 30);
-      spawnFloat(W/2, H/2, `NOVA! -${wCount * novaDmg}`, '#fd79a8');
+      spawnFloat(W/2, H/2, `NOVA! -${wCount * novaDmg}`, C.hi);
       words = []; typed = ''; activeWordIdx = -1;
       break;
     }
@@ -999,14 +837,13 @@ function activateSpell(spellIdx) {
       const drainAmt = Math.floor(20 * amp);
       enemy.hp = Math.max(0, enemy.hp - drainAmt);
       P.hp = Math.min(P.maxHp, P.hp + drainAmt);
-      spawnFloat(W/2, H/2, `DRAIN! +${drainAmt}HP`, C.cyan);
+      spawnFloat(W/2, H/2, `DRAIN +${drainAmt}HP`, C.txt);
       break;
     }
     case 'blast': {
       const blastDmg = Math.floor(80 * amp);
       enemy.hp = Math.max(0, enemy.hp - blastDmg);
-      spawnParticles(ENEMY_CX, ENEMY_CY, '#fd79a8', 20);
-      spawnFloat(ENEMY_CX, ENEMY_CY - 30, `-${blastDmg}`, '#fd79a8');
+      spawnFloat(ENEMY_CX, ENEMY_CY - 30, `-${blastDmg}`, C.hi);
       break;
     }
   }
@@ -1019,14 +856,10 @@ function pickUpgrades(count) {
     const j = Math.floor(Math.random() * (i + 1));
     [pool[i], pool[j]] = [pool[j], pool[i]];
   }
-  const result = [];
-  const usedTypes = new Set();
+  const result = [], usedTypes = new Set();
   for (const u of pool) {
     if (result.length >= count) break;
-    if (!usedTypes.has(u.type)) {
-      result.push(u);
-      usedTypes.add(u.type);
-    }
+    if (!usedTypes.has(u.type)) { result.push(u); usedTypes.add(u.type); }
   }
   while (result.length < count && pool.length > result.length) {
     const u = pool.find(x => !result.includes(x));
@@ -1041,25 +874,20 @@ function applyUpgrade(upg) {
   P.upgrades.push(upg.id);
 
   const e = upg.effect || {};
-  if (e.maxHpBonus) { P.maxHp += e.maxHpBonus; }
-  if (e.healNow) { P.hp = Math.min(P.maxHp, P.hp + e.healNow); }
-  if (e.wordSpeedMult) { P.wordSpeedMult = (P.wordSpeedMult || 1) * e.wordSpeedMult; }
-  if (e.dmgMult) { P.dmgMult += e.dmgMult; }
-  if (e.regenPerRoom) { P.regenPerRoom = (P.regenPerRoom || 0) + e.regenPerRoom; }
-  if (e.berserk) { P.berserk = true; }
-  if (e.vampiric) { P.vampiric = true; }
-  if (e.longshot) { P.longshot = true; }
-  if (e.deathless) { P.deathless = true; }
-  if (e.purge) { /* filter applied in pickWord */ }
-  if (e.inject) { /* power words added in pickWord */ }
-  if (e.chaos) { P.dmgMult *= 2; }
+  if (e.maxHpBonus) P.maxHp += e.maxHpBonus;
+  if (e.healNow)    P.hp = Math.min(P.maxHp, P.hp + e.healNow);
+  if (e.wordSpeedMult) P.wordSpeedMult = (P.wordSpeedMult || 1) * e.wordSpeedMult;
+  if (e.dmgMult)    P.dmgMult += e.dmgMult;
+  if (e.regenPerRoom) P.regenPerRoom = (P.regenPerRoom || 0) + e.regenPerRoom;
+  if (e.berserk)    P.berserk = true;
+  if (e.vampiric)   P.vampiric = true;
+  if (e.longshot)   P.longshot = true;
+  if (e.deathless)  P.deathless = true;
+  if (e.chaos)      P.dmgMult *= 2;
 
   if (upg.type === 'spell' && upg.spell) {
     if (!P.spells) { P.spells = []; P.spellCDs = []; }
-    if (!P.spells.includes(upg.spell)) {
-      P.spells.push(upg.spell);
-      P.spellCDs.push(0);
-    }
+    if (!P.spells.includes(upg.spell)) { P.spells.push(upg.spell); P.spellCDs.push(0); }
   }
 }
 
@@ -1068,165 +896,126 @@ function startRun(classId) {
   const cls = RD.classes[classId];
   P = {
     classId,
-    hp: cls.hp + (cls.id === 'warrior' ? 15 : 0),
+    hp:   cls.hp + (cls.id === 'warrior' ? 15 : 0),
     maxHp: cls.hp + (cls.id === 'warrior' ? 15 : 0),
     dmgMult: cls.dmgMult,
     wordSpeedMult: cls.wordSpeedMult,
-    gold: 0,
-    floor: 1,
-    spells: [],
-    spellCDs: [],
-    upgrades: [],
-    berserk: false, vampiric: false, longshot: false, deathless: false,
-    shield: 0,
-    regenPerRoom: 0,
+    gold: 0, floor: 1,
+    spells: [], spellCDs: [], upgrades: [],
+    berserk:false, vampiric:false, longshot:false, deathless:false,
+    shield: 0, regenPerRoom: 0,
     spellAmp: cls.id === 'mage',
   };
-  if (cls.startSpell) {
-    P.spells.push(cls.startSpell);
-    P.spellCDs.push(0);
-  }
-  buildMap();
-  RA.setTheme('dungeon');
-  G.screen = 'map';
+  if (cls.startSpell) { P.spells.push(cls.startSpell); P.spellCDs.push(0); }
+  buildMap(); RA.setTheme('dungeon'); G.screen = 'map';
 }
 
-// ── ENTER NODE ────────────────────────────────────────────────────────────────
 function enterNode(nodeIdx) {
   const node = mapNodes[nodeIdx];
   mapCurIdx = nodeIdx;
-
-  if (P.regenPerRoom && node.type !== 'rest') {
-    P.hp = Math.min(P.maxHp, P.hp + P.regenPerRoom);
-  }
+  if (P.regenPerRoom && node.type !== 'rest') P.hp = Math.min(P.maxHp, P.hp + P.regenPerRoom);
 
   if (node.type === 'combat' || node.type === 'elite' || node.type === 'boss') {
     G.combatNodeIdx = nodeIdx;
     RA.setTheme(node.type === 'boss' ? 'boss' : 'combat');
     initCombat(node.enemyId);
-  }
-  else if (node.type === 'rest') {
-    G.restNodeIdx = nodeIdx;
-    G.screen = 'rest';
-  }
-  else if (node.type === 'shop') {
-    setupShop(nodeIdx);
-    G.screen = 'shop';
-  }
-  else if (node.type === 'entry') {
-    // Already on entry, just show map
+  } else if (node.type === 'rest') {
+    G.restNodeIdx = nodeIdx; G.screen = 'rest';
+  } else if (node.type === 'shop') {
+    setupShop(nodeIdx); G.screen = 'shop';
   }
 }
 
 function setupShop(nodeIdx) {
   const available = RD.upgrades.filter(u => !P.upgrades.includes(u.id));
-  const items = [];
   const pool = [...available].sort(() => Math.random() - 0.5).slice(0, 3);
-  pool.forEach((u, i) => {
+  G.shopItems = pool.map(u => {
     const cost = u.rarity === 'epic' ? 80 : u.rarity === 'rare' ? 55 : u.rarity === 'uncommon' ? 35 : 20;
-    items.push({ upgrade: u, cost, owned: false });
+    return { upgrade: u, cost, owned: false };
   });
-  G.shopItems = items;
-  G.shopIdx = 0;
-  G.shopNodeIdx = nodeIdx;
+  G.shopIdx = 0; G.shopNodeIdx = nodeIdx;
 }
 
 // ── SCREENS ────────────────────────────────────────────────────────────────────
 function drawTitle() {
   cx.fillStyle = C.bg;
   cx.fillRect(0, 0, W, H);
-  titleTick += 1;
+  titleTick++;
 
-  // Corner torches
-  drawAsciiTorch(90, 215, titleTick);
-  drawAsciiTorch(710, 215, titleTick);
+  // Torches (text only)
+  const flicker = Math.sin(titleTick * 0.07) > 0;
+  cx.font = "bold 13px 'Space Mono',monospace";
+  cx.textAlign = 'center';
+  cx.fillStyle = flicker ? '#664422' : '#443311';
+  cx.fillText(flicker ? '^' : '*', 90, 210);
+  cx.fillText(flicker ? '^' : '*', 710, 210);
+  cx.fillStyle = '#332211';
+  cx.fillText('|', 90, 222); cx.fillText('|', 710, 222);
+  cx.textAlign = 'left';
 
-  text('TYPEROGUE', W/2, 198, C.gold, "bold 62px 'Space Mono','Courier New',monospace", 'center');
+  text('TYPEROGUE', W/2, 195, C.hi, "bold 62px 'Space Mono','Courier New',monospace", 'center');
 
-  cx.strokeStyle = C.border; cx.lineWidth = 1;
-  cx.beginPath(); cx.moveTo(160, 212); cx.lineTo(W-160, 212); cx.stroke();
-
-  text('A TYPING ROGUELIKE', W/2, 240, C.dim, "12px 'Space Mono',monospace", 'center');
+  text('─'.repeat(40), W/2, 210, C.dim, FONT_SM, 'center');
+  text('A TYPING ROGUELIKE', W/2, 236, C.dim, FONT_SM, 'center');
 
   const blink = Math.floor(titleTick / 35) % 2 === 0;
-  if (blink) text('PRESS ENTER TO BEGIN', W/2, 297, C.hi, FONT, 'center');
+  if (blink) text('PRESS ENTER TO BEGIN', W/2, 293, C.white, FONT, 'center');
 
-  text('TYPE TO DESTROY ENEMIES — SURVIVE ALL 3 FLOORS', W/2, 358, C.txt, FONT_SM, 'center');
-  text('<- -> select class  ·  1-3 activate spells  ·  ESC pause', W/2, 378, C.dim, FONT_SM, 'center');
+  text('type to destroy enemies  —  survive all 3 floors', W/2, 355, C.txt, FONT_SM, 'center');
+  text('<- -> class  ·  1-3 spells  ·  ESC pause', W/2, 373, C.dim, FONT_SM, 'center');
 
-  // CRT toggle option
-  const crtStr = '[C] CRT FILTER: ' + (crtEnabled ? 'ON ' : 'OFF');
-  text(crtStr, W/2, H - 18, crtEnabled ? C.cyan : C.dim, FONT_SM, 'center');
-  text('v0.1', W - 16, H - 10, C.dim, FONT_SM, 'right');
+  const crtStr = '[C] CRT: ' + (crtEnabled ? 'ON ' : 'OFF');
+  text(crtStr, W/2, H - 16, crtEnabled ? C.txt : C.dim, FONT_SM, 'center');
 }
 
 function drawClassSelectScreen() {
   cx.fillStyle = C.bg;
   cx.fillRect(0, 0, W, H);
 
-  text('CHOOSE YOUR CLASS', W/2, 56, C.gold, FONT_LG, 'center');
-  cx.strokeStyle = C.border; cx.lineWidth = 1;
-  cx.beginPath(); cx.moveTo(100, 68); cx.lineTo(W-100, 68); cx.stroke();
+  text('CHOOSE YOUR CLASS', W/2, 50, C.hi, FONT_LG, 'center');
+  text('─'.repeat(50), W/2, 62, C.dim, FONT_SM, 'center');
 
-  const cids = CLASS_IDS;
-  const cardW = 200, cardH = 280, gap = 20;
-  const totalW = cids.length * cardW + (cids.length - 1) * gap;
-  const startX = (W - totalW) / 2;
-
-  cids.forEach((cid, i) => {
+  const colW = W / 3;
+  CLASS_IDS.forEach((cid, i) => {
     const cls = RD.classes[cid];
-    const cx2 = startX + i * (cardW + gap);
-    const cy2 = 95;
+    const cx_ = colW * i + colW / 2;
     const selected = i === classSelectIdx;
 
-    // Card background and border
-    cx.fillStyle = selected ? '#0d0d20' : C.bg;
-    cx.fillRect(cx2, cy2, cardW, cardH);
-    cx.strokeStyle = selected ? cls.color : C.border;
-    cx.lineWidth = selected ? 2 : 1;
-    cx.strokeRect(cx2, cy2, cardW, cardH);
+    const nameCol = selected ? C.white : C.txt;
+    if (selected) {
+      text('[', cx_ - 60, 95, C.dim, "bold 20px 'Space Mono',monospace", 'center');
+      text(']', cx_ + 60, 95, C.dim, "bold 20px 'Space Mono',monospace", 'center');
+    }
 
     // ASCII player sprite
     const sprite = ASCII_PLAYER[cid] || [' [@] ', '  @  ', '  Y  '];
-    cx.font = "bold 16px 'Space Mono',monospace";
+    cx.font = "bold 14px 'Space Mono',monospace";
     cx.textAlign = 'center';
     sprite.forEach((line, li) => {
-      cx.fillStyle = li === 1 ? cls.color : C.txt;
-      cx.fillText(line, cx2 + cardW/2, cy2 + 50 + li * 18);
+      cx.fillStyle = li === 1 ? cls.color : C.dim;
+      cx.fillText(line, cx_, 90 + li * 16);
     });
 
-    cx.font = "bold 17px 'Space Mono',monospace";
-    cx.fillStyle = selected ? cls.color : C.txt;
-    cx.fillText(cls.name, cx2 + cardW/2, cy2 + 108);
+    text(cls.name, cx_, 148, nameCol, "bold 15px 'Space Mono',monospace", 'center');
+    text('─'.repeat(22), cx_, 160, C.dim, FONT_SM, 'center');
+    text(`hp:${cls.hp + (cid==='warrior'?15:0)} dmg:${cls.dmgMult}x`, cx_, 176, C.dim, FONT_SM, 'center');
+    text(cid === 'rogue' ? 'words: 1.35x' : 'words: normal', cx_, 190, C.dim, FONT_SM, 'center');
 
-    cx.font = "11px 'Space Mono',monospace";
-    cx.fillStyle = C.dim;
-    cx.fillText(`HP: ${cls.hp + (cid==='warrior'?15:0)}  DMG: ${cls.dmgMult}x`, cx2 + cardW/2, cy2 + 128);
-    cx.fillText(`Words: ${cid==='rogue' ? '1.35x harder' : 'normal'}`, cx2 + cardW/2, cy2 + 144);
+    text('passive', cx_, 216, C.dim, "bold 9px 'Space Mono',monospace", 'center');
+    const passiveText = { warrior:'iron skin', rogue:'quick draw', mage:'spell amp' };
+    text(passiveText[cid] || '', cx_, 230, cls.color, FONT_SM, 'center');
 
-    cx.fillStyle = C.border;
-    cx.font = "bold 10px 'Space Mono',monospace";
-    cx.fillText('PASSIVE', cx2 + cardW/2, cy2 + 172);
-    cx.font = "10px 'Space Mono',monospace";
-    cx.fillStyle = cls.color;
-    const passiveText = { warrior:'Iron Skin', rogue:'Quick Draw', mage:'Spell Amp' };
-    cx.fillText(passiveText[cid] || '', cx2 + cardW/2, cy2 + 188);
+    text('start spell', cx_, 254, C.dim, "bold 9px 'Space Mono',monospace", 'center');
+    text(cls.startSpell ? cls.startSpell.toUpperCase() : 'none', cx_, 268, cls.startSpell ? C.txt : C.dim, FONT_SM, 'center');
 
-    cx.fillStyle = C.border;
-    cx.font = "bold 10px 'Space Mono',monospace";
-    cx.fillText('START SPELL', cx2 + cardW/2, cy2 + 218);
-    cx.font = "10px 'Space Mono',monospace";
-    cx.fillStyle = cls.startSpell ? C.purple : C.dim;
-    cx.fillText(cls.startSpell ? cls.startSpell.toUpperCase() : 'None', cx2 + cardW/2, cy2 + 234);
-
-    cx.fillStyle = C.dim;
     cx.font = "9px 'Space Mono',monospace";
-    wrapText(cls.desc, cx2 + 12, cy2 + 258, cardW - 24, 13, 'center');
+    cx.fillStyle = C.dim;
+    wrapText(cls.desc, cx_ - 88, 292, 176, 13, 'center');
 
     cx.textAlign = 'left';
   });
 
-  text('<- -> select    ENTER confirm', W/2, H - 20, C.dim, FONT_SM, 'center');
+  text('<- -> select    ENTER confirm', W/2, H - 16, C.dim, FONT_SM, 'center');
 }
 
 function drawCombatScreen() {
@@ -1234,110 +1023,59 @@ function drawCombatScreen() {
   cx.fillRect(0, 0, W, H);
 
   drawDungeonRoom();
-
-  // Torches at top corners of floor
   drawTorch(FLOOR_X1 + 18, FLOOR_Y1 + 14);
   drawTorch(FLOOR_X2 - 18, FLOOR_Y1 + 14);
 
-  // Screen flash on hit
-  if (flashTimer > 0) {
-    const alpha = (flashTimer / 400) * 0.28;
-    cx.fillStyle = `rgba(180,20,20,${Math.min(alpha, 0.22)})`;
-    cx.fillRect(0, 0, W, H);
-  }
-
-  // ── Enemy HP bar (top strip) ──
+  // Enemy header (top)
   const eData = RD.enemies[enemy.id] || enemy;
-  cx.fillStyle = '#0a0a14';
-  cx.fillRect(0, 0, W, 50);
-  cx.strokeStyle = C.border; cx.lineWidth = 1;
-  cx.strokeRect(0, 0, W, 50);
-
-  if (enemy.hitFlash > 0) {
-    cx.fillStyle = `rgba(200,50,50,${(enemy.hitFlash/300)*0.28})`;
-    cx.fillRect(0, 0, W, 50);
-    enemy.hitFlash = Math.max(0, enemy.hitFlash - 16);
-  }
-
   const etype = eData.type === 'boss' ? ' [BOSS]' : eData.type === 'elite' ? ' [ELITE]' : '';
-  text(enemy.name.toUpperCase() + etype, 20, 22, enemy.color || C.red, "bold 14px 'Space Mono',monospace");
+  text(enemy.name.toUpperCase() + etype, 20, 18, enemy.color || C.red, "bold 13px 'Space Mono',monospace");
+  asciiBar(20, 36, enemy.hp, RD.enemies[enemy.id].hp, enemy.color || C.red);
+  text('FLOOR ' + P.floor, W - 20, 18, C.dim, FONT_SM, 'right');
   if (enemy.currentPhase > 0) {
-    text(`PHASE ${enemy.currentPhase + 1}`, 20, 38, '#e84393', "bold 9px 'Space Mono',monospace");
+    text('PHASE ' + (enemy.currentPhase + 1), W - 20, 36, '#993366', FONT_SM, 'right');
   }
 
-  hpBar(180, 16, 400, 16, enemy.hp, RD.enemies[enemy.id].hp, enemy.color || C.red);
-  text(enemy.hp + ' / ' + RD.enemies[enemy.id].hp, 590, 30, C.dim, FONT_SM);
-  text('FLOOR ' + P.floor, W - 90, 22, C.dim, FONT_SM);
-
-  // Draw sprites
+  // Sprites
   drawEnemy(enemy, ENEMY_CX, ENEMY_CY, enemy.hp, RD.enemies[enemy.id].hp, enemy.currentPhase);
   drawPlayer(P.classId, PLAYER_CX, PLAYER_CY);
 
-  cx.font = FONT;
+  // Words + floats
   drawWords();
-  drawParticles();
+  drawFloats();
 
   if (freezeTimer > 0) {
-    text('* FROZEN *', W/2, FLOOR_Y1 + 16, C.blue, "bold 11px 'Space Mono',monospace", 'center');
+    text('* frozen *', W/2, FLOOR_Y1 + 14, C.blue, FONT_SM, 'center');
   }
 
-  // ── Bottom HUD ──
-  const hudY = RM.y + RM.h;
-  cx.fillStyle = '#0a0a14';
-  cx.fillRect(0, hudY, W, H - hudY);
-  cx.strokeStyle = C.border; cx.lineWidth = 1;
-  cx.strokeRect(0, hudY, W, H - hudY);
+  // HUD (text only)
+  const hudY = RM.y + RM.h + 10;
+  text('─'.repeat(97), W/2, hudY - 4, C.dim, FONT_SM, 'center');
+  asciiBar(20, hudY + 8, P.hp, P.maxHp, null, P.classId.toUpperCase());
+  if (P.shield > 0) text('  [shld:' + P.shield + ']', 20 + cx.measureText('[================] 135/135 WARRIOR').width, hudY + 8, C.blue, FONT_SM);
+  text('¢' + P.gold, W - 20, hudY + 8, C.gold, FONT_SM, 'right');
 
-  const hpColor = P.hp < P.maxHp * 0.3 ? C.red : P.hp < P.maxHp * 0.6 ? C.gold : C.hi;
-  hpBar(20, hudY + 10, 230, 12, P.hp, P.maxHp, hpColor);
-  text(P.classId.toUpperCase() + '  ' + P.hp + '/' + P.maxHp, 20, hudY + 35, C.dim, FONT_SM);
-
-  if (P.shield > 0) {
-    text('[S] ' + P.shield, 258, hudY + 22, C.blue, FONT_SM);
-  }
-
-  text('¢' + P.gold, W - 60, hudY + 22, C.gold, FONT_SM, 'right');
-
-  // Spell buttons
   if (P.spells && P.spells.length > 0) {
-    P.spells.forEach((spell, i) => {
+    const spellStr = P.spells.map((s, i) => {
       const cd = P.spellCDs[i] || 0;
-      const ready = cd === 0;
-      const spellX = 20 + i * 140;
-      const spellY = hudY + 46;
-      // Background
-      cx.fillStyle = ready ? '#051a0a' : '#0d0d18';
-      cx.fillRect(spellX, spellY, 128, 20);
-      // Cooldown fill
-      if (!ready) {
-        const fillW = 128 * (1 - cd / (RD.upgrades.find(u => u.spell === spell)?.cd || 15000));
-        cx.fillStyle = '#103520';
-        cx.fillRect(spellX, spellY, fillW, 20);
-      }
-      // Border
-      cx.strokeStyle = ready ? C.hi : C.dim;
-      cx.lineWidth = 1;
-      cx.strokeRect(spellX, spellY, 128, 20);
-      text(`[${i+1}] ${spell.toUpperCase()}`, spellX + 5, spellY + 14, ready ? C.hi : C.dim, "bold 10px 'Space Mono',monospace");
-      if (!ready) text(`${(cd/1000).toFixed(1)}s`, spellX + 90, spellY + 14, C.dim, "9px 'Space Mono',monospace");
-    });
+      return `[${i+1}]${s}${cd > 0 ? ' ' + (cd/1000).toFixed(1) + 's' : ''}`;
+    }).join('   ');
+    text(spellStr, 20, hudY + 24, C.txt, FONT_SM);
   }
 
-  // Typed input
-  text('> ' + typed + (Math.floor(combatTick / 400) % 2 === 0 ? '_' : ' '), 20, H - 20, C.hi, FONT);
+  text('> ' + typed + (Math.floor(combatTick / 400) % 2 === 0 ? '_' : ' '), 20, H - 8, C.white, FONT);
 
-  // Pause overlay
+  // Pause
   if (paused) {
-    cx.fillStyle = 'rgba(0,0,0,0.82)';
+    cx.fillStyle = 'rgba(0,0,0,0.88)';
     cx.fillRect(0, 0, W, H);
-    text('[ PAUSED ]', W/2, H/2 - 10, C.blue, FONT_XL, 'center');
-    text('ESC resume  ·  M mute  ·  C CRT filter', W/2, H/2 + 28, C.dim, FONT_SM, 'center');
+    text('[ PAUSED ]', W/2, H/2 - 8, C.white, FONT_XL, 'center');
+    text('ESC resume  M mute  C CRT', W/2, H/2 + 26, C.dim, FONT_SM, 'center');
   }
 
   // Flash message
   if (flashTimer > 0) {
-    const a = clamp(flashTimer / 600, 0, 1);
-    cx.globalAlpha = a;
+    cx.globalAlpha = clamp(flashTimer / 600, 0, 1);
     text(flashMsg, W/2, H/2 - 60, flashColor, FONT_LG, 'center');
     cx.globalAlpha = 1;
   }
@@ -1347,59 +1085,31 @@ function drawUpgradeScreen() {
   cx.fillStyle = C.bg;
   cx.fillRect(0, 0, W, H);
 
-  text('ROOM CLEARED!', W/2, 55, C.gold, FONT_LG, 'center');
-  text('CHOOSE AN UPGRADE', W/2, 80, C.dim, FONT_SM, 'center');
+  text('ROOM CLEARED!', W/2, 46, C.hi, FONT_LG, 'center');
+  text('choose an upgrade', W/2, 68, C.dim, FONT_SM, 'center');
+  text('─'.repeat(97), W/2, 80, C.dim, FONT_SM, 'center');
 
-  cx.strokeStyle = C.border; cx.lineWidth = 1;
-  cx.beginPath(); cx.moveTo(120, 90); cx.lineTo(W-120, 90); cx.stroke();
-
-  const cardW = 190, cardH = 260, gap = 22;
-  const totalW = upgradeOptions.length * cardW + (upgradeOptions.length - 1) * gap;
-  const startX = (W - totalW) / 2;
-
+  const colW = W / 3;
   upgradeOptions.forEach((u, i) => {
-    const cx2 = startX + i * (cardW + gap);
-    const cy2 = 110;
+    const cx_ = colW * i + colW / 2;
     const rarCol = RD.rarityColor[u.rarity] || C.txt;
-    const typeIcon = { passive:'[=]', spell:'[*]', deck:'[~]' }[u.type] || '[?]';
+    const typeIcon = { passive:'=', spell:'*', deck:'~' }[u.type] || '?';
 
-    cx.fillStyle = '#0a0a14';
-    cx.fillRect(cx2, cy2, cardW, cardH);
-    cx.strokeStyle = rarCol; cx.lineWidth = 2;
-    cx.strokeRect(cx2, cy2, cardW, cardH);
+    text('[' + (i+1) + ']', cx_, 108, rarCol, "bold 18px 'Space Mono',monospace", 'center');
+    text(typeIcon, cx_, 134, C.dim, "bold 18px 'Space Mono',monospace", 'center');
+    text(u.name, cx_, 160, C.white, "bold 13px 'Space Mono',monospace", 'center');
+    text(u.rarity + ' ' + u.type, cx_, 176, rarCol, FONT_SM, 'center');
+    text('─'.repeat(22), cx_, 188, C.dim, FONT_SM, 'center');
 
-    // Key hint
-    cx.fillStyle = rarCol + '33';
-    cx.fillRect(cx2 + 8, cy2 + 8, 24, 24);
-    text(`${i+1}`, cx2 + 20, cy2 + 26, rarCol, "bold 14px 'Space Mono',monospace", 'center');
-
-    cx.font = "bold 20px 'Space Mono',monospace";
-    cx.textAlign = 'center';
-    cx.fillStyle = rarCol;
-    cx.fillText(typeIcon, cx2 + cardW/2, cy2 + 80);
-
-    cx.font = "bold 13px 'Space Mono',monospace";
-    cx.fillStyle = C.white;
-    cx.fillText(u.name, cx2 + cardW/2, cy2 + 108);
-
-    cx.font = "10px 'Space Mono',monospace";
-    cx.fillStyle = rarCol;
-    cx.fillText(u.rarity.toUpperCase(), cx2 + cardW/2, cy2 + 126);
-
-    cx.fillStyle = C.dim;
-    cx.fillText(u.type.toUpperCase(), cx2 + cardW/2, cy2 + 142);
-
+    cx.font = FONT_SM;
     cx.fillStyle = C.txt;
-    cx.font = "10px 'Space Mono',monospace";
-    wrapText(u.desc, cx2 + 14, cy2 + 170, cardW - 28, 15, 'center');
-
-    cx.textAlign = 'left';
+    wrapText(u.desc, cx_ - 92, 204, 184, 16, 'center');
   });
 
   if (!upgradeChosen) {
-    text('Press 1 · 2 · 3 to choose', W/2, H - 20, C.dim, FONT_SM, 'center');
+    text('1    2    3', W/2, H - 16, C.dim, FONT_SM, 'center');
   } else {
-    text('Applying upgrade...', W/2, H - 20, C.gold, FONT_SM, 'center');
+    text('...', W/2, H - 16, C.gold, FONT_SM, 'center');
   }
 }
 
@@ -1407,120 +1117,101 @@ function drawCombatResultScreen() {
   cx.fillStyle = C.bg;
   cx.fillRect(0, 0, W, H);
 
-  text('BOSS DEFEATED!', W/2, 155, C.gold, "bold 38px 'Space Mono',monospace", 'center');
+  text('BOSS DEFEATED!', W/2, 150, C.hi, "bold 38px 'Space Mono',monospace", 'center');
+  text('floor ' + ((P.floor||1) - 1) + ' cleared', W/2, 196, C.dim, FONT, 'center');
+  text('─'.repeat(40), W/2, 214, C.dim, FONT_SM, 'center');
 
-  text('FLOOR ' + ((P.floor||1) - 1) + ' CLEARED', W/2, 205, C.dim, FONT, 'center');
-
-  cx.strokeStyle = C.border; cx.lineWidth = 1;
-  cx.beginPath(); cx.moveTo(200, 220); cx.lineTo(W-200, 220); cx.stroke();
-
-  text('HP: ' + P.hp + ' / ' + P.maxHp, W/2, 258, P.hp < P.maxHp*0.3 ? C.red : C.hi, FONT, 'center');
-  text('Gold: ¢' + P.gold, W/2, 288, C.gold, FONT, 'center');
-  if (P.upgrades && P.upgrades.length) {
-    text('Upgrades: ' + P.upgrades.length, W/2, 318, C.purple, FONT, 'center');
-  }
+  text('hp: ' + P.hp + ' / ' + P.maxHp, W/2, 252, P.hp < P.maxHp*0.3 ? C.red : C.txt, FONT, 'center');
+  text('gold: ¢' + P.gold, W/2, 280, C.gold, FONT, 'center');
+  if (P.upgrades && P.upgrades.length) text('upgrades: ' + P.upgrades.length, W/2, 308, C.dim, FONT, 'center');
 
   const blink = Math.floor(Date.now() / 500) % 2 === 0;
-  if (blink) text('PRESS ENTER -> NEXT FLOOR', W/2, 390, C.hi, FONT, 'center');
+  if (blink) text('ENTER -> next floor', W/2, 382, C.txt, FONT, 'center');
 }
 
 function drawShopScreen() {
   cx.fillStyle = C.bg;
   cx.fillRect(0, 0, W, H);
 
-  text('SHOP', W/2, 55, C.gold, "bold 28px 'Space Mono',monospace", 'center');
-  text('Gold: ¢' + P.gold, W/2, 80, C.txt, FONT, 'center');
-
-  cx.strokeStyle = C.border; cx.lineWidth = 1;
-  cx.beginPath(); cx.moveTo(150, 92); cx.lineTo(W-150, 92); cx.stroke();
+  text('SHOP', W/2, 46, C.hi, "bold 28px 'Space Mono',monospace", 'center');
+  text('¢' + P.gold, W/2, 70, C.gold, FONT, 'center');
+  text('─'.repeat(60), W/2, 82, C.dim, FONT_SM, 'center');
 
   const items = G.shopItems || [];
   items.forEach((item, i) => {
     const u = item.upgrade;
     const selected = i === (G.shopIdx || 0);
     const canBuy = P.gold >= item.cost && !item.owned;
-    const rowY = 115 + i * 85;
-
-    cx.fillStyle = selected ? '#0d0d20' : '#0a0a14';
-    cx.fillRect(120, rowY, W-240, 70);
-    cx.strokeStyle = selected ? C.goldhi : C.border;
-    cx.lineWidth = selected ? 2 : 1;
-    cx.strokeRect(120, rowY, W-240, 70);
-
+    const rowY = 112 + i * 60;
     const rarCol = RD.rarityColor[u.rarity] || C.txt;
-    text(u.name, 148, rowY + 24, item.owned ? C.dim : C.white, "bold 13px 'Space Mono',monospace");
-    text(u.rarity.toUpperCase() + ' ' + u.type.toUpperCase(), 148, rowY + 42, item.owned ? C.dim : rarCol, "10px 'Space Mono',monospace");
-    text(u.desc, 148, rowY + 58, item.owned ? C.dim : C.txt, "9px 'Space Mono',monospace");
+
+    const prefix = selected ? '> ' : '  ';
+    text(prefix + u.name, 80, rowY, item.owned ? C.dim : C.white, "bold 13px 'Space Mono',monospace");
+    text(u.rarity + ' · ' + u.type, 80, rowY + 16, item.owned ? C.dim : rarCol, FONT_SM);
+    text(u.desc, 80, rowY + 30, item.owned ? C.dim : C.txt, "9px 'Space Mono',monospace");
     const costStr = item.owned ? 'OWNED' : ('¢' + item.cost);
-    text(costStr, W - 138, rowY + 38, item.owned ? C.dim : (canBuy ? C.gold : C.red), "bold 14px 'Space Mono',monospace", 'right');
+    text(costStr, W - 80, rowY + 8, item.owned ? C.dim : (canBuy ? C.gold : C.red), FONT, 'right');
   });
 
-  text('^ v navigate  ·  ENTER buy  ·  ESC leave', W/2, H - 20, C.dim, FONT_SM, 'center');
+  text('─'.repeat(60), W/2, 308, C.dim, FONT_SM, 'center');
+  text('^ v navigate  ENTER buy  ESC leave', W/2, H - 16, C.dim, FONT_SM, 'center');
 }
 
 function drawRestScreen() {
   cx.fillStyle = C.bg;
   cx.fillRect(0, 0, W, H);
 
-  text('+ REST SITE +', W/2, 170, C.cyan, "bold 28px 'Space Mono',monospace", 'center');
-
-  text('A moment of respite in the dungeon...', W/2, 215, C.dim, FONT_SM, 'center');
-  cx.strokeStyle = C.border; cx.lineWidth = 1;
-  cx.beginPath(); cx.moveTo(200, 228); cx.lineTo(W-200, 228); cx.stroke();
+  text('+ REST SITE +', W/2, 164, C.txt, "bold 28px 'Space Mono',monospace", 'center');
+  text('a moment of respite in the dungeon', W/2, 204, C.dim, FONT_SM, 'center');
+  text('─'.repeat(44), W/2, 220, C.dim, FONT_SM, 'center');
 
   const healAmt = Math.floor(P.maxHp * 0.35);
-  text(`Heal ${healAmt} HP  (${P.hp} -> ${Math.min(P.maxHp, P.hp + healAmt)})`, W/2, 275, C.hi, FONT, 'center');
-  text(`Max HP: ${P.maxHp}`, W/2, 308, C.txt, FONT, 'center');
+  text(`heal ${healAmt} hp  (${P.hp} -> ${Math.min(P.maxHp, P.hp + healAmt)})`, W/2, 270, C.txt, FONT, 'center');
+  text(`max hp: ${P.maxHp}`, W/2, 300, C.dim, FONT, 'center');
 
   const blink = Math.floor(Date.now() / 500) % 2 === 0;
-  if (blink) text('PRESS ENTER TO REST', W/2, 380, C.hi, FONT, 'center');
+  if (blink) text('PRESS ENTER TO REST', W/2, 372, C.txt, FONT, 'center');
 }
 
 function drawGameOverScreen() {
   cx.fillStyle = C.bg;
   cx.fillRect(0, 0, W, H);
 
-  text('DEFEATED', W/2, 175, C.red, "bold 50px 'Space Mono',monospace", 'center');
+  text('DEFEATED', W/2, 170, C.red, "bold 50px 'Space Mono',monospace", 'center');
+  text('─'.repeat(28), W/2, 188, C.dim, FONT_SM, 'center');
 
-  cx.strokeStyle = C.border; cx.lineWidth = 1;
-  cx.beginPath(); cx.moveTo(180, 195); cx.lineTo(W-180, 195); cx.stroke();
-
-  text('Slain by ' + (enemy ? enemy.name : 'the dungeon'), W/2, 238, C.txt, FONT, 'center');
-  text('Floor ' + (P.floor || 1), W/2, 268, C.dim, FONT, 'center');
-  text('Gold: ¢' + (P.gold || 0), W/2, 298, C.gold, FONT, 'center');
-  if (P.upgrades && P.upgrades.length) {
-    text('Upgrades collected: ' + P.upgrades.length, W/2, 328, C.purple, FONT, 'center');
-  }
+  text('slain by ' + (enemy ? enemy.name : 'the dungeon'), W/2, 230, C.txt, FONT, 'center');
+  text('floor ' + (P.floor || 1), W/2, 258, C.dim, FONT, 'center');
+  text('gold: ¢' + (P.gold || 0), W/2, 286, C.gold, FONT, 'center');
+  if (P.upgrades && P.upgrades.length) text('upgrades: ' + P.upgrades.length, W/2, 314, C.dim, FONT, 'center');
 
   const blink = Math.floor(Date.now() / 500) % 2 === 0;
-  if (blink) text('PRESS ENTER TO RETURN', W/2, 400, C.dim, FONT, 'center');
+  if (blink) text('PRESS ENTER TO RETURN', W/2, 392, C.dim, FONT, 'center');
 }
 
 function drawVictoryScreen() {
   cx.fillStyle = C.bg;
   cx.fillRect(0, 0, W, H);
 
-  text('TYRANT PRIME', W/2, 135, C.gold, "bold 40px 'Space Mono',monospace", 'center');
-  text('DEFEATED!', W/2, 188, C.hi, "bold 36px 'Space Mono',monospace", 'center');
+  text('TYRANT PRIME', W/2, 130, C.hi, "bold 40px 'Space Mono',monospace", 'center');
+  text('DEFEATED!', W/2, 182, C.txt, "bold 36px 'Space Mono',monospace", 'center');
+  text('─'.repeat(32), W/2, 198, C.dim, FONT_SM, 'center');
 
-  cx.strokeStyle = C.border; cx.lineWidth = 1;
-  cx.beginPath(); cx.moveTo(150, 200); cx.lineTo(W-150, 200); cx.stroke();
-
-  text('THE DUNGEON HAS BEEN CONQUERED', W/2, 248, C.dim, FONT_SM, 'center');
-  text('CLASS: ' + (P.classId || '').toUpperCase(), W/2, 290, C.blue, FONT, 'center');
-  text('HP REMAINING: ' + P.hp + '/' + P.maxHp, W/2, 320, P.hp < P.maxHp*0.3 ? C.red : C.hi, FONT, 'center');
-  text('Gold: ¢' + P.gold, W/2, 350, C.gold, FONT, 'center');
-  text('Upgrades: ' + (P.upgrades || []).length, W/2, 380, C.purple, FONT, 'center');
+  text('the dungeon has been conquered', W/2, 242, C.dim, FONT_SM, 'center');
+  text('class: ' + (P.classId || '').toUpperCase(), W/2, 284, C.txt, FONT, 'center');
+  text('hp: ' + P.hp + '/' + P.maxHp, W/2, 312, P.hp < P.maxHp*0.3 ? C.red : C.txt, FONT, 'center');
+  text('gold: ¢' + P.gold, W/2, 340, C.gold, FONT, 'center');
+  text('upgrades: ' + (P.upgrades || []).length, W/2, 368, C.dim, FONT, 'center');
 
   const blink = Math.floor(Date.now() / 500) % 2 === 0;
-  if (blink) text('PRESS ENTER TO PLAY AGAIN', W/2, 440, C.hi, FONT, 'center');
+  if (blink) text('PRESS ENTER TO PLAY AGAIN', W/2, 434, C.txt, FONT, 'center');
 }
 
 // ── MAIN LOOP ──────────────────────────────────────────────────────────────────
 let lastT = 0;
 
 function loop(t) {
-  const dt = Math.min(t - lastT, 50); // cap at 50ms
+  const dt = Math.min(t - lastT, 50);
   lastT = t;
 
   cx.clearRect(0, 0, W, H);
@@ -1529,31 +1220,25 @@ function loop(t) {
     case 'title':         drawTitle();             break;
     case 'class_select':  drawClassSelectScreen();  break;
     case 'map':           drawMapScreen();           break;
-    case 'combat':
-      updateCombat(dt);
-      drawCombatScreen();
-      break;
+    case 'combat':        updateCombat(dt); drawCombatScreen(); break;
     case 'upgrade':       drawUpgradeScreen();       break;
     case 'combat_result': drawCombatResultScreen();  break;
-    case 'shop':          drawShopScreen();           break;
-    case 'rest':          drawRestScreen();           break;
-    case 'gameover':      drawGameOverScreen();       break;
-    case 'victory':       drawVictoryScreen();        break;
+    case 'shop':          drawShopScreen();          break;
+    case 'rest':          drawRestScreen();          break;
+    case 'gameover':      drawGameOverScreen();      break;
+    case 'victory':       drawVictoryScreen();       break;
   }
 
   drawCRTOverlay();
-
   requestAnimationFrame(loop);
 }
 
-// ── INPUT ──────────────────────────────────────────────────────────────────────
 window.addEventListener('keydown', e => {
   if (['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Enter','Backspace'].includes(e.key))
     e.preventDefault();
   processKey(e.key);
 });
 
-// ── INIT ───────────────────────────────────────────────────────────────────────
 requestAnimationFrame(loop);
 </script>
 </body>
