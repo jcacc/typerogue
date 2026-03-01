@@ -642,7 +642,7 @@ function clear() {
 function renderTitle() {
   const blink = Math.floor(titleTick / 35) % 2 === 0;
   titleTick++;
-  const footer = '[L] ' + (darkMode ? 'dark mode' : 'light mode') + '  ·  by joe accardi';
+  const footer = '[L] ' + (darkMode ? 'light mode' : 'dark mode') + '  ·  by joe accardi';
   const instr1 = 'type words to destroy enemies  —  survive all 3 floors';
   const instr2 = '<- -> class  ·  1-3 spells  ·  ESC pause';
   const best = bestRunLine();
