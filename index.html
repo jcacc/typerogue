@@ -6,12 +6,12 @@
   <title>TYPEROGUE</title>
   <style>
     * { margin:0; padding:0; box-sizing:border-box; }
-    body { background:#ffffff; display:flex; justify-content:center; align-items:center; height:100vh; overflow:hidden; }
+    body { background:#f8f5f0; display:flex; justify-content:center; align-items:center; height:100vh; overflow:hidden; }
     #game {
       width:800px; height:520px;
       font-family:'Menlo','Monaco','Cascadia Code','Consolas','Courier New',monospace;
       font-size:13px; line-height:1.6;
-      color:#767676; background:#ffffff;
+      color:#4a4a4a; background:#f8f5f0;
       position:relative; overflow:hidden;
     }
     #screen {
@@ -52,6 +52,7 @@
 'use strict';
 
 const RD = window.ROGUE_DATA;
+const VERSION = 'v0.3 · 2026-03-01';
 const RA = window.ROGUE_AUDIO;
 const screen   = document.getElementById('screen');
 const wordLayer = document.getElementById('word-layer');
@@ -64,8 +65,8 @@ const LANE_X = [200, 400, 600];
 
 // ── Themes ─────────────────────────────────────────────────────────────────────
 const THEMES = {
-  dark:  { bg:'#1e1e1e', txt:'#858585', hi:'#d4d4d4', dim:'#3c3c3c', white:'#e8e8e8', gold:'#ce9178', red:'#f44747', blue:'#569cd6', purple:'#c586c0', cyan:'#4ec9b0' },
-  light: { bg:'#ffffff', txt:'#767676', hi:'#1e1e1e', dim:'#cccccc', white:'#000000', gold:'#7a5c00', red:'#cd3131', blue:'#0451a5', purple:'#6f42c1', cyan:'#007070' },
+  dark:  { bg:'#1a1a1a', txt:'#a8a8a8', hi:'#e8e8e8', dim:'#555555', white:'#f0f0f0', gold:'#d4956a', red:'#f14c4c', blue:'#569cd6', purple:'#c586c0', cyan:'#4ec9b0' },
+  light: { bg:'#f8f5f0', txt:'#4a4a4a', hi:'#111111', dim:'#888888', white:'#111111', gold:'#7a5c00', red:'#b91c1c', blue:'#0451a5', purple:'#6f42c1', cyan:'#007070' },
 };
 
 let darkMode = false;
@@ -120,9 +121,9 @@ function bestRunLine() {
 
 // ── Difficulty ─────────────────────────────────────────────────────────────────
 const DIFFICULTIES = [
-  { id:'beginner', label:'BEGINNER', wordSpeed:0.6,  interval:1.5,  attackInterval:1.7,  enemyHp:0.6,  attackDmg:0.5, startHpMult:1.3,  startGold:60 },
-  { id:'normal',   label:'NORMAL',   wordSpeed:1.0,  interval:1.0,  attackInterval:1.0,  enemyHp:1.0,  attackDmg:1.0, startHpMult:1.0,  startGold:30 },
-  { id:'hard',     label:'HARD',     wordSpeed:1.35, interval:0.75, attackInterval:0.75, enemyHp:1.3,  attackDmg:1.5, startHpMult:0.85, startGold:15 },
+  { id:'beginner', label:'BEGINNER', wordSpeed:0.6,  interval:1.5,  attackInterval:1.7,  enemyHp:0.6,  attackDmg:0.5, startHpMult:1.3,  startGold:60, maxWords:4  },
+  { id:'normal',   label:'NORMAL',   wordSpeed:1.0,  interval:1.0,  attackInterval:1.0,  enemyHp:1.0,  attackDmg:1.0, startHpMult:1.0,  startGold:30, maxWords:8  },
+  { id:'hard',     label:'HARD',     wordSpeed:1.35, interval:0.75, attackInterval:0.75, enemyHp:1.3,  attackDmg:1.5, startHpMult:0.85, startGold:15, maxWords:14 },
 ];
 let diffIdx = 1; // default: normal
 
@@ -137,6 +138,7 @@ let mapNodes = [], mapCurIdx = 0, mapSelIdx = 0;
 let words = [], typed = '', activeWordIdx = -1;
 let enemy = null;
 let combatTick = 0, spawnTimer = 0, attackTimer = 0, pickupTimer = 0;
+let comboCount = 0, comboTime = 0;
 let freezeTimer = 0, hasteTimer = 0, flashTimer = 0;
 let flashMsg = '', flashColor = '#fff';
 let scrambleTimer = 0, invisWordCount = 0;
@@ -145,6 +147,8 @@ let upgradeOptions = [], upgradeChosen = false;
 let floats = [];
 let paused = false;
 
+const COMBO_WINDOW = 1500; // ms; rogue class gets 2000ms
+
 const ROOM_TYPE_META = {
   combat: { icon:'!', label:'Combat', color:C.red    },
   elite:  { icon:'%', label:'Elite',  color:C.purple },
@@ -152,6 +156,7 @@ const ROOM_TYPE_META = {
   rest:   { icon:'+', label:'Rest',   color:C.cyan   },
   boss:   { icon:'B', label:'BOSS',   color:'#993366'},
   entry:  { icon:'>', label:'Start',  color:C.blue   },
+  event:  { icon:'?', label:'Event',  color:C.gold   },
 };
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -172,24 +177,73 @@ function pickWord() {
 
 // ── Map generation ─────────────────────────────────────────────────────────────
 function generateFloor(floorNum) {
-  const nodes = [];
   const FE = RD.floorEnemies[floorNum];
-  const normalPool = [...FE.normal].sort(() => Math.random() - 0.5);
+  const np = [...FE.normal].sort(() => Math.random() - 0.5);
+  const fn = i => np[i % np.length];
+  const diff = DIFFICULTIES[diffIdx].id;
   function mk(type, enemyId, col, row) {
     return { type, enemyId: enemyId || null, col, row, cleared:false, reachable:false, id:nodes.length };
   }
-  nodes.push(mk('entry',  null,           1, 0));
-  nodes.push(mk('combat', normalPool[0],  0, 1));
-  const shopA = Math.random() < 0.5;
-  nodes.push(mk(shopA ? 'shop' : 'rest',  null,           0, 2));
-  nodes.push(mk('combat', normalPool[1] || normalPool[0], 0, 3));
-  nodes.push(mk('combat', normalPool[2] || normalPool[0], 2, 1));
-  nodes.push(mk('elite',  FE.elite[0],    2, 2));
-  nodes.push(mk(shopA ? 'rest' : 'shop',  null,           2, 3));
-  nodes.push(mk('boss',   FE.boss,        1, 4));
-  const adj = { 0:[1,4], 1:[2], 2:[3], 3:[7], 4:[5], 5:[6], 6:[7], 7:[] };
+  const nodes = [];
+  let adj, rowChar, mapRows;
+
+  if (diff === 'beginner') {
+    // ── 8 nodes · 2 branches · 5 rows ─────────────────────────────────────
+    const shopA = Math.random() < 0.5;
+    nodes.push(mk('entry',               null,        1, 0)); // 0
+    nodes.push(mk('combat',              fn(0),       0, 1)); // 1
+    nodes.push(mk(shopA?'shop':'rest',   null,        0, 2)); // 2
+    nodes.push(mk('combat',              fn(1),       0, 3)); // 3
+    nodes.push(mk('combat',              fn(2),       2, 1)); // 4
+    nodes.push(mk('elite',               FE.elite[0], 2, 2)); // 5
+    nodes.push(mk(shopA?'rest':'shop',   null,        2, 3)); // 6
+    nodes.push(mk('boss',                FE.boss,     1, 4)); // 7
+    adj = { 0:[1,4], 1:[2], 2:[3], 3:[7], 4:[5], 5:[6], 6:[7], 7:[] };
+    rowChar = [0,3,6,9,12]; mapRows = 16;
+
+  } else if (diff === 'normal') {
+    // ── 10 nodes · 2 branches + event · 6 rows ────────────────────────────
+    const shopA = Math.random() < 0.5;
+    nodes.push(mk('entry',               null,        1, 0)); // 0
+    nodes.push(mk('combat',              fn(0),       0, 1)); // 1
+    nodes.push(mk('combat',              fn(1),       2, 1)); // 2
+    nodes.push(mk('combat',              fn(2),       0, 2)); // 3
+    nodes.push(mk('event',               null,        2, 2)); // 4
+    nodes.push(mk(shopA?'shop':'rest',   null,        0, 3)); // 5
+    nodes.push(mk('elite',               FE.elite[0], 2, 3)); // 6
+    nodes.push(mk('combat',              fn(3),       0, 4)); // 7
+    nodes.push(mk(shopA?'rest':'shop',   null,        2, 4)); // 8
+    nodes.push(mk('boss',                FE.boss,     1, 5)); // 9
+    adj = { 0:[1,2], 1:[3], 2:[4], 3:[5], 4:[6], 5:[7], 6:[8], 7:[9], 8:[9], 9:[] };
+    rowChar = [0,3,6,9,12,15]; mapRows = 18;
+
+  } else {
+    // ── 14 nodes · 3 branches · 2 elites · 2 events · 6 rows ─────────────
+    nodes.push(mk('entry',               null,        1, 0)); // 0
+    nodes.push(mk('combat',              fn(0),       0, 1)); // 1
+    nodes.push(mk('combat',              fn(1),       1, 1)); // 2
+    nodes.push(mk('combat',              fn(2),       2, 1)); // 3
+    nodes.push(mk('event',               null,        0, 2)); // 4
+    nodes.push(mk('elite',               FE.elite[0], 1, 2)); // 5
+    nodes.push(mk(Math.random()<.5?'shop':'rest', null, 2, 2)); // 6
+    nodes.push(mk('combat',              fn(3),       0, 3)); // 7
+    nodes.push(mk(Math.random()<.5?'shop':'rest', null, 1, 3)); // 8
+    nodes.push(mk('event',               null,        2, 3)); // 9
+    nodes.push(mk(Math.random()<.5?'rest':'shop', null, 0, 4)); // 10
+    nodes.push(mk('combat',              fn(1),       1, 4)); // 11
+    nodes.push(mk('elite',               FE.elite[0], 2, 4)); // 12
+    nodes.push(mk('boss',                FE.boss,     1, 5)); // 13
+    adj = {
+      0:[1,2,3], 1:[4], 2:[5], 3:[6],
+      4:[7], 5:[8], 6:[9],
+      7:[10], 8:[11], 9:[12],
+      10:[13], 11:[13], 12:[13], 13:[],
+    };
+    rowChar = [0,3,6,9,12,15]; mapRows = 18;
+  }
+
   nodes[0].reachable = true;
-  return { nodes, adj, floor:floorNum };
+  return { nodes, adj, floor:floorNum, rowChar, mapRows };
 }
 
 function buildMap() {
@@ -199,6 +253,8 @@ function buildMap() {
   mapNodes[0].cleared = true;
   (mapData.adj[0] || []).forEach(i => { mapNodes[i].reachable = true; });
   G.mapAdj = mapData.adj;
+  G.mapRowChar = mapData.rowChar;
+  G.mapRows = mapData.mapRows;
   mapSelIdx = 1;
 }
 
@@ -235,6 +291,7 @@ function initCombat(enemyId) {
   pickupTimer = 14000 + Math.random() * 8000;
   invisWordCount = 0;
   floats = [];
+  comboCount = 0; comboTime = 0;
   paused = false;
   if (eData.type === 'boss') RA.setTheme('boss');
   G.screen = 'combat';
@@ -281,6 +338,7 @@ function updateCombat(dt) {
           RA.playPlayerHit();
           spawnFloat(W/2, WORD_EXIT_Y - 10, `-${dmg}`, C.red);
           flashTimer = 400; flashMsg = `-${dmg} HP`; flashColor = C.red;
+          comboCount = 0; comboTime = 0;
         }
         if (i === activeWordIdx) { typed = ''; activeWordIdx = -1; }
       }
@@ -347,6 +405,10 @@ function updateCombat(dt) {
 }
 
 function spawnCombatWord(isAttack) {
+  if (!isAttack) {
+    const nonAttack = words.filter(w => !w.isAttack && !w.isPickup).length;
+    if (nonAttack >= DIFFICULTIES[diffIdx].maxWords) return;
+  }
   const isInvis = enemy.special === 'invisible' && !isAttack && (invisWordCount % 3 === 2);
   if (enemy.special === 'invisible') invisWordCount++;
   const atkWords = RD.attackWords[enemy.floor] || RD.attackWords[1];
@@ -423,9 +485,18 @@ function destroyWord(idx) {
   if (P.upgrades && P.upgrades.includes('dk_chaos')) dmg *= 2;
   if (P.berserk && P.hp < P.maxHp * 0.3) dmg = Math.ceil(dmg * 1.75);
 
+  // ── Combo ──
+  const cWindow = P.classId === 'rogue' ? 2000 : COMBO_WINDOW;
+  if (comboCount > 0 && (combatTick - comboTime) <= cWindow) comboCount = Math.min(comboCount + 1, 20);
+  else comboCount = 1;
+  comboTime = combatTick;
+  const cMult = comboCount >= 10 ? 2.0 : comboCount >= 6 ? 1.5 : comboCount >= 3 ? 1.25 : 1.0;
+  if (cMult > 1.0) dmg = Math.ceil(dmg * cMult);
+
   enemy.hp = Math.max(0, enemy.hp - dmg);
   RA.playWordDestroy(); RA.playEnemyHit();
-  spawnFloat(w.x, w.y - 20, `-${dmg}`, C.gold);
+  const floatLabel = cMult > 1.0 ? `-${dmg} ×${cMult}` : `-${dmg}`;
+  spawnFloat(w.x, w.y - 20, floatLabel, C.gold);
 
   if (P.vampiric) {
     P.hp = Math.min(P.maxHp, P.hp + 2);
@@ -533,6 +604,8 @@ function enterNode(nodeIdx) {
     G.restNodeIdx = nodeIdx; G.screen = 'rest';
   } else if (node.type === 'shop') {
     setupShop(nodeIdx); G.screen = 'shop';
+  } else if (node.type === 'event') {
+    setupEvent(nodeIdx); G.screen = 'event';
   }
 }
 
@@ -544,6 +617,60 @@ function setupShop(nodeIdx) {
     return { upgrade:u, cost, owned:false };
   });
   G.shopIdx = 0; G.shopNodeIdx = nodeIdx;
+}
+
+// ── Events ─────────────────────────────────────────────────────────────────
+function setupEvent(nodeIdx) {
+  const pool = RD.events;
+  G.eventData   = pool[Math.floor(Math.random() * pool.length)];
+  G.eventNodeIdx = nodeIdx;
+  G.eventSelIdx  = 0;
+  G.eventResult  = null; // null = choosing; string = result to display
+}
+
+function canAffordOption(opt) {
+  if (!opt.cost) return true;
+  if (opt.cost.gold  && P.gold < opt.cost.gold) return false;
+  if (opt.cost.maxHp && P.maxHp - opt.cost.maxHp < 1) return false;
+  return true;
+}
+
+function applyEventOption(opt) {
+  if (opt.cost && opt.cost.gold)  { P.gold  -= opt.cost.gold; }
+  if (opt.cost && opt.cost.maxHp) { P.maxHp -= opt.cost.maxHp; P.hp = Math.min(P.hp, P.maxHp); }
+  switch (opt.action) {
+    case 'random_upgrade': {
+      const available = RD.upgrades.filter(u => !P.upgrades.includes(u.id));
+      const pick = rnd(available.length ? available : RD.upgrades);
+      if (pick) { applyUpgrade(pick); RA.playUpgradePick(); return 'Received: ' + pick.name; }
+      return 'No upgrades available.';
+    }
+    case 'dark_pact':
+      P.dmgMult += 0.5;
+      return '+0.5 dmg mult. Max HP reduced by 25.';
+    case 'cursed_chest':
+      P.gold += 60;
+      P.wordSpeedMult = (P.wordSpeedMult || 1.0) * 1.12;
+      return '+¢60.  Words now move 12% faster.';
+    case 'fountain':
+      P.hp = P.maxHp;
+      return 'Fully healed to ' + P.maxHp + ' HP.';
+    case 'tome':
+      P.dmgMult += 0.3;
+      return '+0.3 damage multiplier.';
+    case 'gamble': {
+      const win = Math.random() < 0.5;
+      if (win) { P.gold += 80; return 'Fortune favors you!  +¢80 (net +¢40).'; }
+      return 'The dice betray you.  ¢40 lost.';
+    }
+    case 'armory':
+      P.maxHp += 30;
+      P.hp = Math.min(P.maxHp, P.hp + 15);
+      return '+30 max HP,  +15 HP restored.';
+    case 'skip':
+    default:
+      return 'You move on.';
+  }
 }
 
 // ── Input ──────────────────────────────────────────────────────────────────────
@@ -650,6 +777,31 @@ function processKey(key) {
     }
     return;
   }
+  if (G.screen === 'event') {
+    const ev = G.eventData;
+    if (!ev) return;
+    function leaveEvent() {
+      mapNodes[G.eventNodeIdx].cleared = true;
+      (G.mapAdj[G.eventNodeIdx] || []).forEach(i => { mapNodes[i].reachable = true; });
+      mapSelIdx = (G.mapAdj[G.eventNodeIdx] || [])[0] || 0;
+      G.screen = 'map';
+    }
+    if (G.eventResult !== null) {
+      if (key === 'Enter' || key === 'Escape') leaveEvent();
+      return;
+    }
+    const opts = ev.options || [];
+    if (key === 'ArrowUp')   G.eventSelIdx = Math.max(0, G.eventSelIdx - 1);
+    if (key === 'ArrowDown') G.eventSelIdx = Math.min(opts.length - 1, G.eventSelIdx + 1);
+    const numKey = parseInt(key) - 1;
+    if (!isNaN(numKey) && numKey >= 0 && numKey < opts.length) G.eventSelIdx = numKey;
+    if (key === 'Enter') {
+      const opt = opts[G.eventSelIdx];
+      if (opt && canAffordOption(opt)) G.eventResult = applyEventOption(opt);
+    }
+    if (key === 'Escape') G.eventResult = applyEventOption({ action: 'skip' });
+    return;
+  }
   if (G.screen === 'gameover' || G.screen === 'victory') {
     if (key === 'Enter') G.screen = 'title';
     return;
@@ -686,6 +838,7 @@ function renderTitle() {
     '',
     best ? dim('best: ' + best) : '',
     '', '', '',
+    dim(VERSION),
     dim(footer),
   ].join('\n');
   clear();
@@ -723,7 +876,7 @@ function renderClassSelect() {
 }
 
 function renderMap() {
-  const COLS = 78, ROWS = 16;
+  const COLS = 78, ROWS = G.mapRows || 16;
   const grid   = Array.from({length:ROWS}, () => new Array(COLS).fill(' '));
   const colors = Array.from({length:ROWS}, () => new Array(COLS).fill(''));
 
@@ -734,7 +887,7 @@ function renderMap() {
   }
 
   const colChar = [8, 37, 66];
-  const rowChar = [0, 3, 6, 9, 12];
+  const rowChar = G.mapRowChar || [0, 3, 6, 9, 12];
   function np(node) { return { r:rowChar[node.row], c:colChar[node.col] }; }
 
   // Corridors
@@ -809,13 +962,19 @@ function renderCombat() {
 
   const shieldStr = P.shield > 0 ? '  ' + sp('[shld:' + P.shield + ']', C.blue) : '';
 
+  const dispComboMult = comboCount >= 10 ? 2.0 : comboCount >= 6 ? 1.5 : comboCount >= 3 ? 1.25 : 1.0;
+  const comboStr = comboCount >= 3
+    ? '\n' + sp('COMBO x' + comboCount + '  ×' + dispComboMult.toFixed(2) + ' dmg', C.gold)
+    : '';
+
   let html =
     sp(enemy.name.toUpperCase() + etype, enemy.color || C.red) +
     (enemy.currentPhase > 0 ? '  ' + sp('PHASE '+(enemy.currentPhase+1), '#993366') : '') +
     '                    ' + dim('FLOOR ' + P.floor) + '\n' +
     bar(enemy.hp, RD.enemies[enemy.id].hp) +
     (frozen ? '\n' + sp('* frozen *', C.blue) : '') +
-    '\n'.repeat(15) +
+    comboStr +
+    '\n'.repeat(comboCount >= 3 ? 14 : 15) +
     dim('─'.repeat(78)) + '\n' +
     bar(P.hp, P.maxHp, P.classId.toUpperCase()) + shieldStr +
     '      ' + sp('¢' + P.gold, C.gold) +
@@ -929,6 +1088,45 @@ function renderRest() {
   clear();
 }
 
+function renderEvent() {
+  const ev = G.eventData;
+  if (!ev) return;
+  const opts = ev.options || [];
+  const lines = [
+    '',
+    sp('   ? ' + ev.title, C.gold),
+    dim('   ' + '─'.repeat(40)),
+    '',
+    sp('   ' + ev.desc, C.txt),
+    '',
+  ];
+  if (G.eventResult !== null) {
+    lines.push(sp('   >> ' + G.eventResult, C.cyan));
+    lines.push('');
+    lines.push(dim('   ENTER to continue'));
+  } else {
+    opts.forEach((opt, i) => {
+      const sel = i === G.eventSelIdx;
+      const afford = canAffordOption(opt);
+      const prefix = sel ? '> ' : '  ';
+      let costStr = '';
+      if (opt.cost) {
+        const parts = [];
+        if (opt.cost.gold)  parts.push('¢' + opt.cost.gold);
+        if (opt.cost.maxHp) parts.push('-' + opt.cost.maxHp + ' max HP');
+        costStr = sp('  [' + parts.join('  ') + ']', afford ? C.gold : C.red);
+      }
+      lines.push(sp(prefix + '[' + (i+1) + '] ' + opt.label, afford ? (sel ? C.white : C.txt) : C.dim) + costStr);
+    });
+    lines.push('');
+    lines.push(dim('   ^ v · 1-' + opts.length + ' select    ENTER confirm    ESC skip'));
+    lines.push('');
+    lines.push(dim('   ¢' + P.gold + '  hp ' + P.hp + '/' + P.maxHp));
+  }
+  screen.innerHTML = lines.join('\n');
+  clear();
+}
+
 function renderGameOver() {
   const blink = Math.floor(Date.now() / 500) % 2 === 0;
   screen.innerHTML = [
@@ -1013,11 +1211,18 @@ function renderInstructions() {
     dim('   drain   — deals damage and heals you'),
     dim('   blast   — heavy single hit'),
     '',
+    wh('   combo'),
+    dim('   destroy words in quick succession to build a multiplier'),
+    dim('   ×1.25 at x3  ·  ×1.50 at x6  ·  ×2.00 at x10'),
+    dim('   taking damage resets the combo'),
+    '',
     wh('   map'),
     dim('   <- -> navigate nodes,  ENTER to enter'),
     dim('   combat → elite → boss per floor  (3 floors total)'),
+    dim('   ? event nodes: random encounters with choices and consequences'),
     dim('   shop: spend gold on upgrades'),
     dim('   rest: restore 35% hp'),
+    dim('   normal: 2 branches  ·  hard: 3 branches'),
     '',
     dim('   ESC  pause / back'),
     '', '',
@@ -1042,6 +1247,7 @@ function loop(t) {
     case 'combat_result': renderCombatResult();   break;
     case 'shop':          renderShop();           break;
     case 'rest':          renderRest();           break;
+    case 'event':         renderEvent();          break;
     case 'gameover':      renderGameOver();       break;
     case 'victory':       renderVictory();        break;
   }

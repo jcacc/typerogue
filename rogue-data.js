@@ -152,6 +152,13 @@ window.ROGUE_DATA = {
       color: '#b2bec3', bodyColor: '#636e72', eyeColor: '#ffd700',
       size: 28, emoji: '🤖',
     },
+    flame_wraith: {
+      id: 'flame_wraith', name: 'Flame Wraith', floor: 3, type: 'normal',
+      hp: 145, wordSpeed: 44, wordInterval: 2100, attackInterval: 5200, attackDmg: 22,
+      wordTiers: [2, 3], loot: { gold: 48 }, phases: [],
+      color: '#e17055', bodyColor: '#d63031', eyeColor: '#fdcb6e',
+      size: 20, emoji: '🔥',
+    },
   },
 
   // ── Upgrade pool ─────────────────────────────────────────────────────────────
@@ -207,11 +214,86 @@ window.ROGUE_DATA = {
   floorEnemies: {
     1: { normal: ['goblin_scout','cave_troll','dire_rat','goblin_shaman'], elite: ['cursed_tome'], boss: 'goblin_king' },
     2: { normal: ['shadow_archer','void_wraith','plague_knight','spectral_wolf'], elite: ['bone_oracle'], boss: 'lich_lord' },
-    3: { normal: ['storm_knight','dread_sorcerer','iron_golem'], elite: ['dread_sorcerer'], boss: 'tyrant_prime' },
+    3: { normal: ['storm_knight','dread_sorcerer','iron_golem','flame_wraith'], elite: ['dread_sorcerer'], boss: 'tyrant_prime' },
   },
 
   // ── Power words for deck manipulation ───────────────────────────────────────
   powerWords: ['zap','bash','cut','hit','jab','rip','ace','axe','key','aim'],
+
+  // ── Random encounter events ───────────────────────────────────────────────────
+  events: [
+    {
+      id: 'altar',
+      title: 'ANCIENT ALTAR',
+      desc: 'A worn altar hums with residual power. Runes glow faintly along its surface.',
+      options: [
+        { label: 'Channel energy — receive a random upgrade', action: 'random_upgrade' },
+        { label: 'Ignore it',                                 action: 'skip' },
+      ],
+    },
+    {
+      id: 'dark_pact',
+      title: 'SHADOWED SHRINE',
+      desc: 'A voice offers strength in exchange for vitality. Your max HP will be reduced by 25.',
+      options: [
+        { label: 'Accept (+0.5 dmg mult,  -25 max HP)', cost: { maxHp: 25 }, action: 'dark_pact' },
+        { label: 'Refuse',                               action: 'skip' },
+      ],
+    },
+    {
+      id: 'cursed_chest',
+      title: 'CURSED CHEST',
+      desc: 'A chest bound in black iron. The lock clicks open on its own. Words will move 12% faster.',
+      options: [
+        { label: 'Take the gold (+¢60,  words 12% faster)', action: 'cursed_chest' },
+        { label: 'Leave it',                                action: 'skip' },
+      ],
+    },
+    {
+      id: 'fountain',
+      title: 'HEALING FOUNTAIN',
+      desc: 'Crystal-clear water bubbles up from a stone basin. It looks completely safe.',
+      options: [
+        { label: 'Drink — fully restore HP', action: 'fountain' },
+        { label: 'Move on',                  action: 'skip' },
+      ],
+    },
+    {
+      id: 'tome',
+      title: 'FORGOTTEN TOME',
+      desc: 'A leather-bound grimoire open to a chapter on combat precision.',
+      options: [
+        { label: 'Study it (+0.3 dmg mult)', action: 'tome' },
+        { label: 'Leave it',                 action: 'skip' },
+      ],
+    },
+    {
+      id: 'gamble',
+      title: 'SUSPICIOUS MERCHANT',
+      desc: 'A hooded figure rattles a coin purse. "Double or nothing, friend." Costs ¢40 to play.',
+      options: [
+        { label: 'Gamble  (pay ¢40 — 50% chance to net +¢40)', cost: { gold: 40 }, action: 'gamble' },
+        { label: 'Walk away',                                    action: 'skip' },
+      ],
+    },
+    {
+      id: 'armory',
+      title: 'HIDDEN ARMORY',
+      desc: 'Rusted weapons and salvageable armor line the walls. You find something useful.',
+      options: [
+        { label: 'Scavenge gear (+30 max HP,  +15 HP now)', action: 'armory' },
+        { label: 'Leave it',                                 action: 'skip' },
+      ],
+    },
+    {
+      id: 'crossroads',
+      title: 'CROSSROADS OMEN',
+      desc: 'Strange symbols are carved at a fork in the tunnel. A faint chill passes through you.',
+      options: [
+        { label: 'Press on', action: 'skip' },
+      ],
+    },
+  ],
 
   rarityColor: { common:'#b2bec3', uncommon:'#74b9ff', rare:'#ffd700', epic:'#fd79a8' },
 };
