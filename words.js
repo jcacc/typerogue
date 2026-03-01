@@ -24,6 +24,9 @@ window.TYPERUN_WORDS = {
       'bay','day','gay','hay','jay','kay','lay','may','nay','pay',
       'ray','say','way','yay','fly','fry','dry','pry','try','cry',
       'guy','buy','dye','eye','lie','pie','tie','rye','bye','aye',
+      'crypt','tomb','rune','slay','loot','bane','vex','lair','mire','dusk',
+      'orb','rot','void','moat','gate','keep','cell','ward','gore','helm',
+      'smite','flay','blight','pyre','hex','imp','haze','claw','fang','scar',
     ],
 
     // ── Tier 1: 5-7 chars — waves 3-4 ───────────────────────────────────────
@@ -56,6 +59,10 @@ window.TYPERUN_WORDS = {
       'brink','clink','drink','flink','shrink','slink','stink','think','wink',
       'brawl','crawl','drawl','prowl','growl','scrawl','sprawl','trawl',
       'frown','brown','clown','crown','drown','gown','town','renown',
+      'dungeon','goblin','wraith','undead','cursed','banish','blight','specter',
+      'relic','amulet','dagger','golem','sigil','altar','bounty','fiend',
+      'archer','knight','shaman','tyrant','warden','coffin','wither','hollow',
+      'malice','horror','terror','sinful','fester','sorrow','mortal','rotten',
     ],
 
     // ── Tier 2: 7-10 chars — waves 5-6 ──────────────────────────────────────
@@ -91,6 +98,9 @@ window.TYPERUN_WORDS = {
       'worldwide','meltdown','backstab','outbreak','gridlock','fallback',
       'override','deadlock','firestorm','blastoff','lockdown','shutdown',
       'overload','burndown','tailspin','freefall','breakout','jailbreak',
+      'catacomb','labyrinth','skeleton','sorcerer','graveyard','spellbook',
+      'reanimate','underworld','necrotic','forsaken','witchfire','bloodpact',
+      'boneyard','grimoire','soulbound','runesmith','cataclysm','doomwatch',
     ],
 
     // ── Tier 3: 10-14 chars — wave 7+ ────────────────────────────────────────
@@ -125,6 +135,9 @@ window.TYPERUN_WORDS = {
       'systematically','technological','telecommunications','turbulence',
       'uncompromising','underdeveloped','unforeseeable','unprecedented',
       'unprecedented','catastrophically','wordprocessor','typographical',
+      'necromantically','supernaturally','otherworldly','annihilating',
+      'obliterating','dimensionshift','archnemesis','incomprehensible',
+      'soulcrushing','indestructible','uncontrollable','catastrophizing',
     ],
   ],
 
