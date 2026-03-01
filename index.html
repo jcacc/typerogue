@@ -4,15 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>TYPEROGUE</title>
-  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
   <style>
     * { margin:0; padding:0; box-sizing:border-box; }
-    body { background:#000; display:flex; justify-content:center; align-items:center; height:100vh; overflow:hidden; }
+    body { background:#1e1e1e; display:flex; justify-content:center; align-items:center; height:100vh; overflow:hidden; }
     #game {
       width:800px; height:520px;
-      font-family:'Space Mono','Courier New',monospace;
+      font-family:'Menlo','Monaco','Cascadia Code','Consolas','Courier New',monospace;
       font-size:13px; line-height:1.6;
-      color:#666; background:#000;
+      color:#858585; background:#1e1e1e;
       position:relative; overflow:hidden;
     }
     #screen {
@@ -30,7 +29,7 @@
       position:absolute;
       transform:translateX(-50%);
       white-space:nowrap;
-      font-family:'Space Mono','Courier New',monospace;
+      font-family:'Menlo','Monaco','Cascadia Code','Consolas','Courier New',monospace;
       font-size:13px; font-weight:bold; line-height:1;
     }
   </style>
@@ -61,8 +60,8 @@ const LANE_X = [200, 400, 600];
 
 // ── Themes ─────────────────────────────────────────────────────────────────────
 const THEMES = {
-  dark:  { bg:'#000', txt:'#666', hi:'#aaa', dim:'#333', white:'#ccc', gold:'#886600', red:'#993333', blue:'#336699', purple:'#554488', cyan:'#226655' },
-  light: { bg:'#f0efe8', txt:'#888', hi:'#333', dim:'#bbb', white:'#111', gold:'#7a5c00', red:'#992222', blue:'#224f88', purple:'#4a3388', cyan:'#1a6655' },
+  dark:  { bg:'#1e1e1e', txt:'#858585', hi:'#d4d4d4', dim:'#3c3c3c', white:'#e8e8e8', gold:'#ce9178', red:'#f44747', blue:'#569cd6', purple:'#c586c0', cyan:'#4ec9b0' },
+  light: { bg:'#ffffff', txt:'#767676', hi:'#1e1e1e', dim:'#cccccc', white:'#000000', gold:'#7a5c00', red:'#cd3131', blue:'#0451a5', purple:'#6f42c1', cyan:'#007070' },
 };
 
 let darkMode = true;
@@ -72,8 +71,9 @@ function applyTheme() {
   const t = darkMode ? THEMES.dark : THEMES.light;
   Object.assign(C, t);
   document.body.style.background = t.bg;
-  document.getElementById('game').style.background = t.bg;
-  document.getElementById('game').style.color = t.txt;
+  const game = document.getElementById('game');
+  game.style.background = t.bg;
+  game.style.color = t.txt;
 }
 
 // ── HTML helpers ───────────────────────────────────────────────────────────────
