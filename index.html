@@ -12,7 +12,7 @@
       width:800px; height:520px;
       font-family:'Space Mono','Courier New',monospace;
       font-size:13px; line-height:1.6;
-      color:#666;
+      color:#666; background:#000;
       position:relative; overflow:hidden;
     }
     #screen {
@@ -59,11 +59,22 @@ const WORD_SPAWN_Y = 115;
 const WORD_EXIT_Y  = 355;
 const LANE_X = [200, 400, 600];
 
-// ── Colors ─────────────────────────────────────────────────────────────────────
-const C = {
-  bg:'#000', txt:'#666', hi:'#aaa', dim:'#333', white:'#ccc',
-  gold:'#886600', red:'#993333', blue:'#336699', purple:'#554488', cyan:'#226655',
+// ── Themes ─────────────────────────────────────────────────────────────────────
+const THEMES = {
+  dark:  { bg:'#000', txt:'#666', hi:'#aaa', dim:'#333', white:'#ccc', gold:'#886600', red:'#993333', blue:'#336699', purple:'#554488', cyan:'#226655' },
+  light: { bg:'#f0efe8', txt:'#888', hi:'#333', dim:'#bbb', white:'#111', gold:'#7a5c00', red:'#992222', blue:'#224f88', purple:'#4a3388', cyan:'#1a6655' },
 };
+
+let darkMode = true;
+const C = { ...THEMES.dark };
+
+function applyTheme() {
+  const t = darkMode ? THEMES.dark : THEMES.light;
+  Object.assign(C, t);
+  document.body.style.background = t.bg;
+  document.getElementById('game').style.background = t.bg;
+  document.getElementById('game').style.color = t.txt;
+}
 
 // ── HTML helpers ───────────────────────────────────────────────────────────────
 function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
@@ -497,6 +508,7 @@ function setupShop(nodeIdx) {
 function processKey(key) {
   if (G.screen === 'title') {
     if (key === 'Enter') { G.screen = 'class_select'; RA.startMusic('dungeon'); }
+    if (key === 'l' || key === 'L') { darkMode = !darkMode; applyTheme(); }
     return;
   }
   if (G.screen === 'class_select') {
@@ -516,7 +528,11 @@ function processKey(key) {
   }
   if (G.screen === 'combat') {
     if (key === 'Escape') { paused = !paused; return; }
-    if (paused) { if (key === 'm' || key === 'M') RA.toggleMute(); return; }
+    if (paused) {
+      if (key === 'm' || key === 'M') RA.toggleMute();
+      if (key === 'l' || key === 'L') { darkMode = !darkMode; applyTheme(); }
+      return;
+    }
     if (P.spells && P.spells.length > 0) {
       const si = parseInt(key) - 1;
       if (si >= 0 && si < P.spells.length) { activateSpell(si); return; }
@@ -598,7 +614,7 @@ function renderTitle() {
     dim('   type words to destroy enemies  —  survive all 3 floors'),
     dim('   <- -> class  ·  1-3 spells  ·  ESC pause'),
     '', '', '', '', '', '', '',
-    dim('                              by joe accardi'),
+    dim('   [L] ' + (darkMode ? 'dark mode' : 'light mode') + '                    by joe accardi'),
   ].join('\n');
   clear();
 }
@@ -734,7 +750,7 @@ function renderCombat() {
     sp('> ', C.dim) + wh(esc(typed) + cursor);
 
   if (flashTimer > 0) html += '\n\n' + sp(flashMsg, flashColor);
-  if (paused) html += '\n\n' + wh('[ PAUSED ]') + '    ' + dim('ESC resume  M mute');
+  if (paused) html += '\n\n' + wh('[ PAUSED ]') + '    ' + dim('ESC resume  M mute  L theme');
 
   screen.innerHTML = html;
 
@@ -896,6 +912,8 @@ function loop(t) {
   }
   requestAnimationFrame(loop);
 }
+
+applyTheme();
 
 window.addEventListener('keydown', e => {
   if (['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Enter','Backspace'].includes(e.key))
