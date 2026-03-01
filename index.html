@@ -603,18 +603,22 @@ function clear() { wordLayer.innerHTML = ''; floatLayer.innerHTML = ''; }
 function renderTitle() {
   const blink = Math.floor(titleTick / 35) % 2 === 0;
   titleTick++;
+  function c(text) { return ' '.repeat(Math.max(0, Math.floor((78 - text.length) / 2))); }
+  const footer = '[L] ' + (darkMode ? 'dark mode' : 'light mode') + '  ·  by joe accardi';
+  const instr1 = 'type words to destroy enemies  —  survive all 3 floors';
+  const instr2 = '<- -> class  ·  1-3 spells  ·  ESC pause';
   screen.innerHTML = [
     '', '', '', '', '',
-    wh('                          TYPEROGUE'),
+    c('TYPEROGUE') + wh('TYPEROGUE'),
     '',
-    dim('                      a typing roguelike'),
+    c('a typing roguelike') + dim('a typing roguelike'),
     '', '',
-    blink ? wh('              PRESS ENTER TO BEGIN') : '',
+    blink ? c('PRESS ENTER TO BEGIN') + wh('PRESS ENTER TO BEGIN') : '',
     '', '',
-    dim('   type words to destroy enemies  —  survive all 3 floors'),
-    dim('   <- -> class  ·  1-3 spells  ·  ESC pause'),
+    c(instr1) + dim(instr1),
+    c(instr2) + dim(instr2),
     '', '', '', '', '', '', '',
-    dim('   [L] ' + (darkMode ? 'dark mode' : 'light mode') + '                    by joe accardi'),
+    c(footer) + dim(footer),
   ].join('\n');
   clear();
 }
