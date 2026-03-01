@@ -33,9 +33,41 @@
       font-family:'Menlo','Monaco','Cascadia Code','Consolas','Courier New',monospace;
       font-size:13px; font-weight:bold; line-height:1;
     }
+
+    /* ── Mobile wall ─────────────────────────────────────────────────────── */
+    #mobile-wall {
+      display: none;
+      position: fixed; inset: 0;
+      background: #f8f5f0; color: #4a4a4a;
+      font-family: 'Menlo','Monaco','Cascadia Code','Consolas','Courier New',monospace;
+      font-size: 13px; line-height: 1.8;
+      flex-direction: column; justify-content: center; align-items: center;
+      text-align: center; padding: 40px; z-index: 999;
+    }
+    #mobile-wall .title  { color: #111111; font-size: 18px; letter-spacing: 0.1em; margin-bottom: 20px; }
+    #mobile-wall .body   { color: #4a4a4a; max-width: 320px; }
+    #mobile-wall .muted  { color: #888888; margin-top: 24px; font-size: 12px; }
+    @media (prefers-color-scheme: dark) {
+      #mobile-wall { background: #1a1a1a; color: #a8a8a8; }
+      #mobile-wall .title { color: #f0f0f0; }
+      #mobile-wall .body  { color: #a8a8a8; }
+      #mobile-wall .muted { color: #555555; }
+    }
+    @media (max-width: 860px), (pointer: coarse) {
+      #mobile-wall { display: flex; }
+    }
   </style>
 </head>
 <body>
+<div id="mobile-wall">
+  <div class="title">TYPEROGUE</div>
+  <div class="body">
+    this game requires a physical keyboard<br><br>
+    for the best experience, open it on a<br>
+    desktop or laptop computer
+  </div>
+  <div class="muted">github.com/jcacc/typerogue</div>
+</div>
 <div id="game">
   <div id="screen"></div>
   <div id="word-layer"></div>
@@ -143,7 +175,7 @@ let freezeTimer = 0, hasteTimer = 0, flashTimer = 0;
 let flashMsg = '', flashColor = '#fff';
 let scrambleTimer = 0, invisWordCount = 0;
 let P = {};
-let upgradeOptions = [], upgradeChosen = false;
+let upgradeOptions = [], upgradeChosen = false, upgradeSelIdx = 0;
 let floats = [];
 let paused = false;
 
@@ -400,7 +432,7 @@ function updateCombat(dt) {
     } else {
       G.screen = 'upgrade'; RA.setTheme('dungeon');
     }
-    upgradeOptions = pickUpgrades(3); upgradeChosen = false;
+    upgradeOptions = pickUpgrades(3); upgradeChosen = false; upgradeSelIdx = 0;
   }
 }
 
@@ -740,9 +772,12 @@ function processKey(key) {
   }
   if (G.screen === 'upgrade' || G.screen === 'combat_result') {
     if (!upgradeChosen && G.screen === 'upgrade') {
-      const idx = parseInt(key) - 1;
-      if (idx >= 0 && idx < upgradeOptions.length) {
-        applyUpgrade(upgradeOptions[idx]); upgradeChosen = true; RA.playUpgradePick();
+      if (key === 'ArrowUp'   || key === 'ArrowLeft')  upgradeSelIdx = (upgradeSelIdx + upgradeOptions.length - 1) % upgradeOptions.length;
+      if (key === 'ArrowDown' || key === 'ArrowRight') upgradeSelIdx = (upgradeSelIdx + 1) % upgradeOptions.length;
+      const numKey = parseInt(key) - 1;
+      if (numKey >= 0 && numKey < upgradeOptions.length) upgradeSelIdx = numKey;
+      if (key === 'Enter' || (numKey >= 0 && numKey < upgradeOptions.length)) {
+        applyUpgrade(upgradeOptions[upgradeSelIdx]); upgradeChosen = true; RA.playUpgradePick();
         setTimeout(() => { RA.setTheme('dungeon'); G.screen = 'map'; }, 700);
       }
     } else if (G.screen === 'combat_result' && key === 'Enter') {
@@ -1023,14 +1058,16 @@ function renderCombat() {
 function renderUpgrade() {
   const lines = ['', wh('   ROOM CLEARED!'), dim('   choose an upgrade'), dim('   ' + '─'.repeat(40)), ''];
   upgradeOptions.forEach((u, i) => {
+    const sel = !upgradeChosen && i === upgradeSelIdx;
     const rarCol = RD.rarityColor[u.rarity] || C.txt;
     const typeIcon = { passive:'=', spell:'*', deck:'~' }[u.type] || '?';
-    lines.push(sp('[' + (i+1) + '] ' + typeIcon + ' ' + u.name, rarCol));
-    lines.push(dim('    ' + u.rarity + ' ' + u.type));
-    lines.push(sp('    ' + u.desc, C.txt));
+    const prefix = sel ? '>' : ' ';
+    lines.push(sp(prefix + ' [' + (i+1) + '] ' + typeIcon + ' ' + u.name, sel ? C.white : rarCol));
+    lines.push(dim('      ' + u.rarity + ' ' + u.type));
+    lines.push(sp('      ' + u.desc, sel ? C.txt : C.dim));
     lines.push('');
   });
-  lines.push(!upgradeChosen ? dim('   1  2  3') : sp('   ...', C.gold));
+  lines.push(!upgradeChosen ? dim('   ^ v navigate    ENTER confirm    1 2 3 shortcut') : sp('   ...', C.gold));
   screen.innerHTML = lines.join('\n');
   clear();
 }

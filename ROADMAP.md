@@ -7,9 +7,9 @@ Possible features, roughly ordered by effort. Nothing here is committed.
 ## Gameplay
 
 - ~~**Difficulty modes**~~ — ✓ done (Beginner / Normal / Hard)
+- ~~**Combo system**~~ — ✓ done (×1.25/×1.5/×2.0 multiplier; Rogue has wider window; damage breaks chain)
+- ~~**Event nodes**~~ — ✓ done (8 encounters: altar, dark pact, cursed chest, fountain, tome, gamble, armory, crossroads)
 - **Status effects** — burn (damage over time), freeze (from enemy), silence (spells disabled briefly)
-- **Combo system** — typing words in quick succession builds a multiplier; breaking the chain resets it
-- **Event nodes** — random text-based encounters on the map (gamble gold, mystery upgrade, curses)
 - **Curse mechanic** — some upgrades come with a downside (e.g. +dmg but words move faster)
 - **Elite rewards** — guaranteed spell or high-tier upgrade for clearing elite nodes
 - **Boss phases with unique mechanics** — mid-fight events beyond just stat scaling
@@ -35,4 +35,4 @@ Possible features, roughly ordered by effort. Nothing here is committed.
 - **Animated title** — subtle drifting characters or cursor blink effects in the background
 - **Run summary screen** — detailed end-of-run stats (words typed, damage dealt, accuracy, time)
 - **Keyboard layout support** — Dvorak / Colemak word pool option
-- **Mobile / touch** — on-screen keyboard support for phones
+- ~~**Mobile / touch**~~ — ✓ done (mobile wall shown on small/touch screens directing to desktop)
