@@ -627,6 +627,11 @@ function startRun(classId) {
 function enterNode(nodeIdx) {
   const node = mapNodes[nodeIdx];
   mapCurIdx = nodeIdx;
+  // Lock other branches once a path is chosen
+  const branches = G.mapAdj[0] || [];
+  if (branches.includes(nodeIdx)) {
+    branches.forEach(i => { if (i !== nodeIdx) mapNodes[i].reachable = false; });
+  }
   if (P.regenPerRoom && node.type !== 'rest') P.hp = Math.min(P.maxHp, P.hp + P.regenPerRoom);
   if (node.type === 'combat' || node.type === 'elite' || node.type === 'boss') {
     G.combatNodeIdx = nodeIdx;
