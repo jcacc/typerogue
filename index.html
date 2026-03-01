@@ -39,6 +39,9 @@
   <div id="screen"></div>
   <div id="word-layer"></div>
   <div id="float-layer"></div>
+  <a id="gh-link" href="https://github.com/jcacc/typerogue" target="_blank"
+     style="position:absolute;bottom:14px;left:50%;transform:translateX(-50%);
+            font-family:inherit;font-size:13px;text-decoration:none;z-index:10;"></a>
 </div>
 
 <script src="words.js"></script>
@@ -74,6 +77,8 @@ function applyTheme() {
   const game = document.getElementById('game');
   game.style.background = t.bg;
   game.style.color = t.txt;
+  const gh = document.getElementById('gh-link');
+  gh.style.color = t.dim;
 }
 
 // ── HTML helpers ───────────────────────────────────────────────────────────────
@@ -603,7 +608,13 @@ function processKey(key) {
 }
 
 // ── Render ─────────────────────────────────────────────────────────────────────
-function clear() { wordLayer.innerHTML = ''; floatLayer.innerHTML = ''; }
+const ghLink = document.getElementById('gh-link');
+ghLink.textContent = 'github.com/jcacc/typerogue';
+
+function clear() {
+  wordLayer.innerHTML = ''; floatLayer.innerHTML = '';
+  ghLink.style.display = 'none';
+}
 
 function renderTitle() {
   const blink = Math.floor(titleTick / 35) % 2 === 0;
@@ -623,10 +634,10 @@ function renderTitle() {
     c(instr1) + dim(instr1),
     c(instr2) + dim(instr2),
     '', '', '', '', '', '', '',
-    c(footer) + dim(footer) + '\n' +
-    c('github.com/jcacc/typerogue') + `<a href="https://github.com/jcacc/typerogue" target="_blank" style="color:${C.dim};text-decoration:none;">github.com/jcacc/typerogue</a>`,
+    c(footer) + dim(footer),
   ].join('\n');
   clear();
+  ghLink.style.display = '';
 }
 
 function renderClassSelect() {
