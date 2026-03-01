@@ -570,7 +570,12 @@ function processKey(key) {
     return;
   }
   if (G.screen === 'shop') {
-    if (key === 'Escape') { G.screen = 'map'; return; }
+    if (key === 'Escape') {
+      mapNodes[G.shopNodeIdx].cleared = true;
+      (G.mapAdj[G.shopNodeIdx] || []).forEach(i => { mapNodes[i].reachable = true; });
+      mapSelIdx = (G.mapAdj[G.shopNodeIdx] || [])[0] || 0;
+      G.screen = 'map'; return;
+    }
     if (key === 'ArrowUp')   G.shopIdx = Math.max(0, (G.shopIdx||0) - 1);
     if (key === 'ArrowDown') G.shopIdx = Math.min((G.shopItems||[]).length-1, (G.shopIdx||0) + 1);
     if (key === 'Enter') {
