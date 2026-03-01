@@ -6,12 +6,12 @@
   <title>TYPEROGUE</title>
   <style>
     * { margin:0; padding:0; box-sizing:border-box; }
-    body { background:#1e1e1e; display:flex; justify-content:center; align-items:center; height:100vh; overflow:hidden; }
+    body { background:#ffffff; display:flex; justify-content:center; align-items:center; height:100vh; overflow:hidden; }
     #game {
       width:800px; height:520px;
       font-family:'Menlo','Monaco','Cascadia Code','Consolas','Courier New',monospace;
       font-size:13px; line-height:1.6;
-      color:#858585; background:#1e1e1e;
+      color:#767676; background:#ffffff;
       position:relative; overflow:hidden;
     }
     #screen {
@@ -64,7 +64,7 @@ const THEMES = {
   light: { bg:'#ffffff', txt:'#767676', hi:'#1e1e1e', dim:'#cccccc', white:'#000000', gold:'#7a5c00', red:'#cd3131', blue:'#0451a5', purple:'#6f42c1', cyan:'#007070' },
 };
 
-let darkMode = true;
+let darkMode = false;
 const C = { ...THEMES.dark };
 
 function applyTheme() {
@@ -623,7 +623,8 @@ function renderTitle() {
     c(instr1) + dim(instr1),
     c(instr2) + dim(instr2),
     '', '', '', '', '', '', '',
-    c(footer) + dim(footer),
+    c(footer) + dim(footer) + '\n' +
+    c('github.com/jcacc/typerogue') + `<a href="https://github.com/jcacc/typerogue" target="_blank" style="color:${C.dim};text-decoration:none;">github.com/jcacc/typerogue</a>`,
   ].join('\n');
   clear();
 }
