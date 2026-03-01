@@ -21,3 +21,18 @@ Press `L` on the title screen or while paused. Dark mode is the default (black b
 - Players start with ¢30 gold so the first shop is immediately useful.
 - All title screen text is properly centered.
 - Added "by joe accardi" byline to title screen.
+
+### Claude Code terminal theme
+Switched to a VS Code-inspired color palette (dark and light variants) and a system monospace font stack (Menlo / Monaco / Cascadia Code / Consolas) so the game looks like a native terminal session rather than a web game.
+
+### Dungeonsynth music
+Replaced the techno step sequencer with a slow atmospheric score: detuned sine/triangle pads, bass drones, a sparse organ melody, and a feedback-delay cave reverb. Three modes — dungeon (55 BPM, A Aeolian), combat (68 BPM, A Phrygian), boss (78 BPM, A+E♭ tritone drone).
+
+### GitHub link + light mode default
+Added a link to the repo on the title screen. Light mode is now the default.
+
+### Bug fix — GitHub link not clickable
+The link was embedded inside a `white-space:pre` innerHTML string, which made it unclickable. Moved it to a standalone `<a id="gh-link">` DOM element positioned absolutely in `#game`, shown only on the title screen and hidden on all other screens via `clear()`.
+
+### Title screen centering
+Replaced the manual `c()` space-padding function with a `.centered` CSS class (`text-align:center`) applied to `#screen` only during the title render. Ensures the GitHub link and all title text share the same center point.
