@@ -6,7 +6,7 @@ Possible features, roughly ordered by effort. Nothing here is committed.
 
 ## Gameplay
 
-- **Difficulty modes** — Easy / Normal / Hard, tuning enemy HP, attack speed, word length
+- ~~**Difficulty modes**~~ — ✓ done (Beginner / Normal / Hard)
 - **Status effects** — burn (damage over time), freeze (from enemy), silence (spells disabled briefly)
 - **Combo system** — typing words in quick succession builds a multiplier; breaking the chain resets it
 - **Event nodes** — random text-based encounters on the map (gamble gold, mystery upgrade, curses)
