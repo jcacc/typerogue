@@ -22,6 +22,9 @@ Press `L` on the title screen or while paused. Dark mode is the default (black b
 - All title screen text is properly centered.
 - Added "by joe accardi" byline to title screen.
 
+### Difficulty levels
+Three difficulty modes selectable before each run: Beginner, Normal, Hard. Selected on a dedicated screen after class select (ESC goes back). Each mode applies multipliers to enemy HP, word speed, word spawn interval, attack interval, attack damage, and player starting HP and gold. Beginner gives kids and new players a fighting chance; Hard removes the safety net. Difficulty is recorded in the best run display.
+
 ### Claude Code terminal theme
 Switched to a VS Code-inspired color palette (dark and light variants) and a system monospace font stack (Menlo / Monaco / Cascadia Code / Consolas) so the game looks like a native terminal session rather than a web game.
 
