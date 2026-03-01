@@ -102,7 +102,7 @@ function loadBestRun() {
   try { return JSON.parse(localStorage.getItem('typerogue_best')) || null; } catch { return null; }
 }
 function saveBestRun(outcome) {
-  const cur  = { outcome, floor:P.floor||1, kills:P.kills||0, gold:P.gold||0, classId:P.classId };
+  const cur  = { outcome, floor:P.floor||1, kills:P.kills||0, gold:P.gold||0, classId:P.classId, difficulty:DIFFICULTIES[diffIdx].id };
   const prev = loadBestRun();
   function score(r) {
     if (!r) return -1;
@@ -114,8 +114,17 @@ function bestRunLine() {
   const b = loadBestRun();
   if (!b) return '';
   const tag = b.outcome === 'victory' ? 'victory' : 'fl.' + b.floor;
-  return tag + '  ' + b.classId + '  ' + b.kills + ' kills  ¢' + b.gold;
+  const dif = b.difficulty ? '  ' + b.difficulty : '';
+  return tag + '  ' + b.classId + dif + '  ' + b.kills + ' kills  ¢' + b.gold;
 }
+
+// ── Difficulty ─────────────────────────────────────────────────────────────────
+const DIFFICULTIES = [
+  { id:'beginner', label:'BEGINNER', wordSpeed:0.6,  interval:1.5,  attackInterval:1.7,  enemyHp:0.6,  attackDmg:0.5, startHpMult:1.3,  startGold:60 },
+  { id:'normal',   label:'NORMAL',   wordSpeed:1.0,  interval:1.0,  attackInterval:1.0,  enemyHp:1.0,  attackDmg:1.0, startHpMult:1.0,  startGold:30 },
+  { id:'hard',     label:'HARD',     wordSpeed:1.35, interval:0.75, attackInterval:0.75, enemyHp:1.3,  attackDmg:1.5, startHpMult:0.85, startGold:15 },
+];
+let diffIdx = 1; // default: normal
 
 // ── State ──────────────────────────────────────────────────────────────────────
 let G = { screen:'title' };
@@ -207,10 +216,15 @@ function mapNavigate(dir) {
 function initCombat(enemyId) {
   const eData = RD.enemies[enemyId];
   if (!eData) { console.error('Unknown enemy:', enemyId); return; }
+  const diff = DIFFICULTIES[diffIdx];
   enemy = {
-    ...eData, hp:eData.hp, currentPhase:0, phasesFired:new Set(),
-    effectiveSpeed:   eData.wordSpeed    * (P.wordSpeedMult || 1.0),
-    effectiveInterval:eData.wordInterval,
+    ...eData,
+    hp:               Math.round(eData.hp * diff.enemyHp),
+    attackDmg:        Math.round(eData.attackDmg * diff.attackDmg),
+    attackInterval:   eData.attackInterval * diff.attackInterval,
+    currentPhase:0, phasesFired:new Set(),
+    effectiveSpeed:   eData.wordSpeed    * (P.wordSpeedMult || 1.0) * diff.wordSpeed,
+    effectiveInterval:eData.wordInterval * diff.interval,
   };
   words = []; typed = ''; activeWordIdx = -1;
   combatTick = 0;
@@ -496,9 +510,10 @@ function applyUpgrade(upg) {
 function startRun(classId) {
   const cls = RD.classes[classId];
   P = {
-    classId, hp:cls.hp + (classId==='warrior'?15:0), maxHp:cls.hp + (classId==='warrior'?15:0),
+    classId, hp:Math.round((cls.hp + (classId==='warrior'?15:0)) * DIFFICULTIES[diffIdx].startHpMult),
+    maxHp:Math.round((cls.hp + (classId==='warrior'?15:0)) * DIFFICULTIES[diffIdx].startHpMult),
     dmgMult:cls.dmgMult, wordSpeedMult:cls.wordSpeedMult,
-    gold:30, floor:1, kills:0, spells:[], spellCDs:[], upgrades:[],
+    gold:DIFFICULTIES[diffIdx].startGold, floor:1, kills:0, spells:[], spellCDs:[], upgrades:[],
     berserk:false, vampiric:false, longshot:false, deathless:false,
     shield:0, regenPerRoom:0, spellAmp:classId==='mage',
   };
@@ -546,6 +561,8 @@ function processKey(key) {
   if (G.screen === 'class_select') {
     if (key === 'ArrowLeft')  classSelectIdx = (classSelectIdx + 2) % 3;
     if (key === 'ArrowRight') classSelectIdx = (classSelectIdx + 1) % 3;
+    if (key === 'ArrowUp')    diffIdx = (diffIdx + DIFFICULTIES.length - 1) % DIFFICULTIES.length;
+    if (key === 'ArrowDown')  diffIdx = (diffIdx + 1) % DIFFICULTIES.length;
     if (key === 'Enter')      startRun(CLASS_IDS[classSelectIdx]);
     return;
   }
@@ -678,6 +695,9 @@ function renderClassSelect() {
   const tabs = CLASS_IDS.map((id, i) =>
     i === classSelectIdx ? wh('[ ' + RD.classes[id].name + ' ]') : dim('  ' + RD.classes[id].name + '  ')
   ).join('     ');
+  const diffTabs = DIFFICULTIES.map((d, i) =>
+    i === diffIdx ? wh('[ ' + d.label + ' ]') : dim('  ' + d.label + '  ')
+  ).join('   ');
 
   screen.innerHTML = [
     '',
@@ -695,8 +715,13 @@ function renderClassSelect() {
     sp('   spell:   ' + (cls.startSpell || 'none'), C.txt),
     '',
     dim('   ' + cls.desc),
-    '', '', '',
-    dim('   <- -> select    ENTER confirm'),
+    '', '',
+    wh('   DIFFICULTY'),
+    dim('   ' + '─'.repeat(40)),
+    '',
+    '   ' + diffTabs,
+    '',
+    dim('   <- -> class    ↑ ↓ difficulty    ENTER confirm'),
   ].join('\n');
   clear();
 }
