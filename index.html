@@ -38,25 +38,25 @@ function resize() {
 }
 window.addEventListener('resize', resize); resize();
 
-// ── Color palette (dark terminal theme) ────────────────────────────────────────
+// ── Color palette (monochrome terminal) ────────────────────────────────────────
 const C = {
-  bg:       '#09090f',   // canvas background
-  bg2:      '#0d0d18',   // slightly lighter bg
-  wall:     '#1e1e3a',   // room wall fill
-  border:   '#2a2a4a',   // dim border chars
-  bord2:    '#4a4a8a',   // brighter border (selected)
-  txt:      '#88aa88',   // primary text (muted green)
-  hi:       '#aaffaa',   // bright green highlight
-  dim:      '#334433',   // dim/inactive text
-  gold:     '#ddaa33',   // gold accents
-  goldhi:   '#ffcc44',   // bright gold
-  red:      '#ee4455',   // danger/red
-  redhi:    '#ff6677',   // bright red
-  blue:     '#4499ff',   // blue/magic
-  purple:   '#9977ee',   // purple/spell
-  cyan:     '#44ddcc',   // cyan
-  white:    '#cce8cc',   // near-white
-  floorDot: '#1a1a2a',   // floor dot chars
+  bg:       '#000000',   // pure black
+  bg2:      '#0a0a0a',
+  wall:     '#111111',
+  border:   '#333333',
+  bord2:    '#555555',
+  txt:      '#777777',   // grey text
+  hi:       '#aaaaaa',   // bright grey
+  dim:      '#333333',   // dim/inactive
+  gold:     '#886600',   // muted gold (score/coins only)
+  goldhi:   '#aa8822',
+  red:      '#993333',   // danger
+  redhi:    '#bb4444',
+  blue:     '#336699',
+  purple:   '#554488',
+  cyan:     '#225544',
+  white:    '#cccccc',
+  floorDot: '#0a0a0a',
 };
 
 // ── Constants ──────────────────────────────────────────────────────────────────
@@ -267,39 +267,24 @@ function drawDungeonRoom() {
 
 // ── ASCII torch ────────────────────────────────────────────────────────────────
 function drawTorch(x, y) {
-  const t = combatTick * 0.003;
-  const flicker = Math.sin(t * 7.3 + x) > 0;
-
-  // Subtle canvas glow for atmosphere
-  const glow = cx.createRadialGradient(x, y - 4, 0, x, y - 4, 18);
-  glow.addColorStop(0, `rgba(180,90,10,0.3)`);
-  glow.addColorStop(1, 'transparent');
-  cx.fillStyle = glow;
-  cx.beginPath(); cx.arc(x, y - 4, 18, 0, Math.PI * 2); cx.fill();
-
+  const flicker = Math.sin(combatTick * 0.02 + x) > 0;
   cx.font = "bold 11px 'Space Mono',monospace";
   cx.textAlign = 'center';
-  cx.fillStyle = flicker ? '#ff9900' : '#ffcc00';
+  cx.fillStyle = flicker ? '#886622' : '#664400';
   cx.fillText(flicker ? '^' : '*', x, y - 6);
-  cx.fillStyle = '#884400';
+  cx.fillStyle = '#443311';
   cx.fillText('|', x, y + 4);
   cx.textAlign = 'left';
 }
 
 function drawAsciiTorch(x, y, tick) {
   const flicker = Math.sin(tick * 0.07 + x) > 0;
-  const gl = cx.createRadialGradient(x, y, 0, x, y, 28);
-  gl.addColorStop(0, `rgba(180,100,10,0.35)`);
-  gl.addColorStop(1, 'transparent');
-  cx.fillStyle = gl;
-  cx.beginPath(); cx.arc(x, y, 28, 0, Math.PI * 2); cx.fill();
-
   cx.font = "bold 13px 'Space Mono',monospace";
   cx.textAlign = 'center';
-  cx.fillStyle = flicker ? '#ff8800' : '#ffcc00';
-  cx.fillText(flicker ? ' ^ ' : ' * ', x, y - 5);
-  cx.fillStyle = '#884400';
-  cx.fillText(' | ', x, y + 7);
+  cx.fillStyle = flicker ? '#886622' : '#664400';
+  cx.fillText(flicker ? '^' : '*', x, y - 5);
+  cx.fillStyle = '#443311';
+  cx.fillText('|', x, y + 7);
   cx.textAlign = 'left';
 }
 
@@ -346,55 +331,30 @@ function drawPlayer(classId, x, y) {
 
 // ── Words in combat ────────────────────────────────────────────────────────────
 function drawWords() {
+  cx.font = FONT;
   words.forEach((w, i) => {
     if (w.invisible && w.invisBlinkTimer > 0 && Math.floor(w.invisBlinkTimer / 200) % 2 === 0) return;
 
     const isActive = (i === activeWordIdx);
     const isAttack = w.isAttack;
-    const x = w.x, y = w.y;
-
-    cx.font = FONT;
-    const bgW = Math.max(cx.measureText(w.text).width + 16, 55);
-    const bgH = 20;
-    const bgX = x - bgW/2, bgY = y - bgH/2 - 2;
-
-    // Dark background pill with ASCII-style border
-    if (isAttack) {
-      rect(bgX, bgY, bgW, bgH, 'rgba(40,8,8,0.96)');
-      rect(bgX, bgY, bgW, bgH, null, isActive ? C.redhi : C.red, isActive ? 1.5 : 1);
-    } else {
-      rect(bgX, bgY, bgW, bgH, 'rgba(8,8,22,0.96)');
-      rect(bgX, bgY, bgW, bgH, null, isActive ? C.goldhi : C.border, isActive ? 1.5 : 1);
-    }
-
-    // Text — typed part bright, rest dim/red
     const txt = w.text;
     const typedLen = isActive ? typed.length : 0;
-    let drawX = x - cx.measureText(txt).width / 2;
-    const textY = y + 5;
 
     if (typedLen > 0 && isActive) {
-      const typedPart = txt.slice(0, typedLen);
-      const restPart  = txt.slice(typedLen);
-      cx.fillStyle = C.hi;
-      cx.fillText(typedPart, drawX, textY);
-      drawX += cx.measureText(typedPart).width;
-      cx.fillStyle = isAttack ? C.red : C.txt;
-      cx.fillText(restPart, drawX, textY);
+      const done = txt.slice(0, typedLen);
+      const rest = txt.slice(typedLen);
+      const fullW = cx.measureText(txt).width;
+      let dx = w.x - fullW / 2;
+      cx.fillStyle = C.white;
+      cx.fillText(done, dx, w.y);
+      dx += cx.measureText(done).width;
+      cx.fillStyle = isAttack ? C.redhi : C.dim;
+      cx.fillText(rest, dx, w.y);
     } else {
-      cx.fillStyle = isAttack ? C.red : (isActive ? C.white : C.txt);
       cx.textAlign = 'center';
-      cx.fillText(txt, x, textY);
+      cx.fillStyle = isAttack ? C.red : (isActive ? C.hi : C.txt);
+      cx.fillText(txt, w.x, w.y);
       cx.textAlign = 'left';
-    }
-
-    // Attack label
-    if (isAttack) {
-      cx.fillStyle = C.red;
-      cx.font = "bold 9px 'Space Mono',monospace";
-      cx.textAlign = 'center';
-      cx.fillText('!ATK!', x, bgY - 2);
-      cx.font = FONT; cx.textAlign = 'left';
     }
   });
 }
@@ -459,17 +419,10 @@ function drawCRTOverlay() {
   }
   cx.globalAlpha = 1;
 
-  // Vignette
-  const vg = cx.createRadialGradient(W/2, H/2, H * 0.28, W/2, H/2, H * 0.72);
-  vg.addColorStop(0, 'transparent');
-  vg.addColorStop(1, 'rgba(0,0,0,0.48)');
-  cx.fillStyle = vg;
-  cx.fillRect(0, 0, W, H);
-
   // Occasional flicker line
   if (Math.random() < 0.008) {
-    cx.globalAlpha = 0.04;
-    cx.fillStyle = '#aaffaa';
+    cx.globalAlpha = 0.05;
+    cx.fillStyle = '#ffffff';
     cx.fillRect(0, Math.floor(Math.random() * H), W, 1 + Math.floor(Math.random() * 2));
     cx.globalAlpha = 1;
   }
@@ -527,12 +480,6 @@ function getReachable() {
 function drawMapScreen() {
   cx.fillStyle = C.bg;
   cx.fillRect(0, 0, W, H);
-
-  // Subtle grid texture
-  cx.strokeStyle = '#111120';
-  cx.lineWidth = 1;
-  for (let tx = 0; tx < W; tx += 40) cx.strokeRect(tx, 0, 40, H);
-  for (let ty = 0; ty < H; ty += 40) cx.strokeRect(0, ty, W, 40);
 
   // Title bar
   cx.fillStyle = C.bg2;
@@ -1194,10 +1141,6 @@ function drawTitle() {
   drawAsciiTorch(90, 215, titleTick);
   drawAsciiTorch(710, 215, titleTick);
 
-  // Decorative box around title content
-  cx.strokeStyle = C.border; cx.lineWidth = 1;
-  cx.strokeRect(60, 145, W - 120, 230);
-
   text('TYPEROGUE', W/2, 198, C.gold, "bold 62px 'Space Mono','Courier New',monospace", 'center');
 
   cx.strokeStyle = C.border; cx.lineWidth = 1;
@@ -1301,12 +1244,6 @@ function drawCombatScreen() {
     const alpha = (flashTimer / 400) * 0.28;
     cx.fillStyle = `rgba(180,20,20,${Math.min(alpha, 0.22)})`;
     cx.fillRect(0, 0, W, H);
-  }
-
-  // Freeze overlay
-  if (freezeTimer > 0) {
-    cx.fillStyle = 'rgba(30,80,160,0.09)';
-    cx.fillRect(FLOOR_X1, FLOOR_Y1, FLOOR_W, FLOOR_H);
   }
 
   // ── Enemy HP bar (top strip) ──
@@ -1470,10 +1407,7 @@ function drawCombatResultScreen() {
   cx.fillStyle = C.bg;
   cx.fillRect(0, 0, W, H);
 
-  cx.save();
-  cx.shadowBlur = 16; cx.shadowColor = C.gold;
   text('BOSS DEFEATED!', W/2, 155, C.gold, "bold 38px 'Space Mono',monospace", 'center');
-  cx.restore();
 
   text('FLOOR ' + ((P.floor||1) - 1) + ' CLEARED', W/2, 205, C.dim, FONT, 'center');
 
@@ -1493,9 +1427,6 @@ function drawCombatResultScreen() {
 function drawShopScreen() {
   cx.fillStyle = C.bg;
   cx.fillRect(0, 0, W, H);
-  cx.strokeStyle = '#111120'; cx.lineWidth = 1;
-  for (let tx = 0; tx < W; tx += TILE) cx.strokeRect(tx, 0, TILE, H);
-  for (let ty = 0; ty < H; ty += TILE) cx.strokeRect(0, ty, W, TILE);
 
   text('SHOP', W/2, 55, C.gold, "bold 28px 'Space Mono',monospace", 'center');
   text('Gold: ¢' + P.gold, W/2, 80, C.txt, FONT, 'center');
@@ -1530,14 +1461,8 @@ function drawShopScreen() {
 function drawRestScreen() {
   cx.fillStyle = C.bg;
   cx.fillRect(0, 0, W, H);
-  cx.strokeStyle = '#051a10'; cx.lineWidth = 1;
-  for (let tx = 0; tx < W; tx += TILE) cx.strokeRect(tx, 0, TILE, H);
-  for (let ty = 0; ty < H; ty += TILE) cx.strokeRect(0, ty, W, TILE);
 
-  cx.save();
-  cx.shadowBlur = 12; cx.shadowColor = C.cyan;
   text('+ REST SITE +', W/2, 170, C.cyan, "bold 28px 'Space Mono',monospace", 'center');
-  cx.restore();
 
   text('A moment of respite in the dungeon...', W/2, 215, C.dim, FONT_SM, 'center');
   cx.strokeStyle = C.border; cx.lineWidth = 1;
@@ -1555,10 +1480,7 @@ function drawGameOverScreen() {
   cx.fillStyle = C.bg;
   cx.fillRect(0, 0, W, H);
 
-  cx.save();
-  cx.shadowBlur = 20; cx.shadowColor = C.red;
   text('DEFEATED', W/2, 175, C.red, "bold 50px 'Space Mono',monospace", 'center');
-  cx.restore();
 
   cx.strokeStyle = C.border; cx.lineWidth = 1;
   cx.beginPath(); cx.moveTo(180, 195); cx.lineTo(W-180, 195); cx.stroke();
@@ -1578,11 +1500,8 @@ function drawVictoryScreen() {
   cx.fillStyle = C.bg;
   cx.fillRect(0, 0, W, H);
 
-  cx.save();
-  cx.shadowBlur = 20; cx.shadowColor = C.gold;
   text('TYRANT PRIME', W/2, 135, C.gold, "bold 40px 'Space Mono',monospace", 'center');
   text('DEFEATED!', W/2, 188, C.hi, "bold 36px 'Space Mono',monospace", 'center');
-  cx.restore();
 
   cx.strokeStyle = C.border; cx.lineWidth = 1;
   cx.beginPath(); cx.moveTo(150, 200); cx.lineTo(W-150, 200); cx.stroke();
