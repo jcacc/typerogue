@@ -1106,7 +1106,7 @@ function drawCombatScreen() {
   const eData = RD.enemies[enemy.id] || enemy;
   const etype = eData.type === 'boss' ? ' [BOSS]' : eData.type === 'elite' ? ' [ELITE]' : '';
   text(enemy.name.toUpperCase() + etype, 20, 18, enemy.color || C.red, "bold 13px 'Space Mono',monospace");
-  asciiBar(20, 36, enemy.hp, RD.enemies[enemy.id].hp, enemy.color || C.red);
+  asciiBar(20, 36, enemy.hp, RD.enemies[enemy.id].hp);
   text('FLOOR ' + P.floor, W - 20, 18, C.dim, FONT_SM, 'right');
   if (enemy.currentPhase > 0) {
     text('PHASE ' + (enemy.currentPhase + 1), W - 20, 36, '#993366', FONT_SM, 'right');
