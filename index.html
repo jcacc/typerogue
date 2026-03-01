@@ -121,7 +121,7 @@ let mapNodes = [], mapCurIdx = 0, mapSelIdx = 0;
 
 let words = [], typed = '', activeWordIdx = -1;
 let enemy = null;
-let combatTick = 0, spawnTimer = 0, attackTimer = 0;
+let combatTick = 0, spawnTimer = 0, attackTimer = 0, pickupTimer = 0;
 let freezeTimer = 0, hasteTimer = 0, flashTimer = 0;
 let flashMsg = '', flashColor = '#fff';
 let scrambleTimer = 0;
@@ -297,6 +297,32 @@ function drawWords() {
     const isAttack = w.isAttack;
     const txt = w.text;
     const typedLen = isActive ? typed.length : 0;
+
+    if (w.isPickup) {
+      const eff = w.pickupEffect;
+      const blink = Math.floor(Date.now() / 400) % 2 === 0;
+      if (typedLen > 0) {
+        const done = txt.slice(0, typedLen);
+        const rest = txt.slice(typedLen);
+        const fullW = cx.measureText(txt).width;
+        let dx = w.x - fullW / 2;
+        cx.fillStyle = C.white; cx.fillText(done, dx, w.y);
+        dx += cx.measureText(done).width;
+        cx.fillStyle = C.dim; cx.fillText(rest, dx, w.y);
+      } else {
+        cx.textAlign = 'center';
+        cx.fillStyle = isActive ? C.white : (blink ? eff.color : C.dim);
+        cx.fillText(txt, w.x, w.y);
+        cx.textAlign = 'left';
+      }
+      cx.font = "bold 9px 'Space Mono',monospace";
+      cx.textAlign = 'center';
+      cx.fillStyle = eff.color;
+      cx.fillText(eff.label, w.x, w.y + 14);
+      cx.font = FONT;
+      cx.textAlign = 'left';
+      return;
+    }
 
     if (typedLen > 0 && isActive) {
       const done = txt.slice(0, typedLen);
@@ -521,6 +547,7 @@ function initCombat(enemyId) {
   freezeTimer = 0; hasteTimer = 0; flashTimer = 0;
   flashMsg = '';
   scrambleTimer = eData.special === 'scramble' ? 15000 : 0;
+  pickupTimer = 14000 + Math.random() * 8000;
   invisWordCount = 0;
   floats = [];
   paused = false;
@@ -594,6 +621,14 @@ function updateCombat(dt) {
     attackTimer = enemy.attackInterval;
   }
 
+  if (!frozen) {
+    pickupTimer -= dt;
+    if (pickupTimer <= 0) {
+      spawnPickup();
+      pickupTimer = 14000 + Math.random() * 8000;
+    }
+  }
+
   if (enemy.phases && enemy.phases.length > 0) {
     const enemyMaxHp = RD.enemies[enemy.id].hp;
     enemy.phases.forEach((ph, idx) => {
@@ -662,6 +697,31 @@ function spawnCombatWord(isAttack) {
     isAttack: !!isAttack,
     invisible: !!isInvis,
     invisBlinkTimer: isInvis ? 800 : 0,
+  });
+  updateActiveWord();
+}
+
+// ── PICKUPS ────────────────────────────────────────────────────────────────────
+const PICKUP_SYMS = ['!', '@', '#', '$', '%', '&', '*', '(', ')'];
+const PICKUP_EFFECTS = [
+  { type:'hp',     amount:20,  label:'+20hp',   color:C.cyan },
+  { type:'hp',     amount:35,  label:'+35hp',   color:C.cyan },
+  { type:'gold',   amount:25,  label:'+¢25',    color:C.gold },
+  { type:'shield', amount:20,  label:'+shld20', color:C.blue },
+  { type:'dmg',    amount:0.3, label:'+0.3dmg', color:C.hi   },
+];
+
+function spawnPickup() {
+  const eff = PICKUP_EFFECTS[Math.floor(Math.random() * PICKUP_EFFECTS.length)];
+  const len = Math.random() < 0.5 ? 2 : 3;
+  let sym = '';
+  for (let i = 0; i < len; i++) sym += PICKUP_SYMS[Math.floor(Math.random() * PICKUP_SYMS.length)];
+  const laneIdx = Math.floor(Math.random() * 3);
+  const xOff = (Math.random() - 0.5) * 40;
+  words.push({
+    text: sym, x: LANE_X[laneIdx] + xOff, y: WORD_SPAWN_Y,
+    speed: 9, isAttack: false, invisible: false, invisBlinkTimer: 0,
+    isPickup: true, pickupEffect: eff,
   });
   updateActiveWord();
 }
@@ -781,6 +841,21 @@ function processKey(key) {
 function destroyWord(idx) {
   if (idx < 0 || idx >= words.length) return;
   const w = words[idx];
+
+  if (w.isPickup) {
+    const eff = w.pickupEffect;
+    if (eff.type === 'hp')     P.hp = Math.min(P.maxHp, P.hp + eff.amount);
+    if (eff.type === 'gold')   P.gold = (P.gold || 0) + eff.amount;
+    if (eff.type === 'shield') P.shield = (P.shield || 0) + eff.amount;
+    if (eff.type === 'dmg')    P.dmgMult += eff.amount;
+    RA.playWordDestroy();
+    spawnFloat(w.x, w.y - 20, eff.label, eff.color);
+    words.splice(idx, 1);
+    if (activeWordIdx >= idx) activeWordIdx = Math.max(-1, activeWordIdx - 1);
+    typed = ''; updateActiveWord();
+    return;
+  }
+
   let dmg = Math.ceil(w.text.length * P.dmgMult);
   if (P.longshot && w.text.length >= 8) dmg *= 3;
   if (P.upgrades && P.upgrades.includes('dk_chaos')) dmg *= 2;
@@ -964,6 +1039,7 @@ function drawTitle() {
   text('type to destroy enemies  —  survive all 3 floors', W/2, 355, C.txt, FONT_SM, 'center');
   text('<- -> class  ·  1-3 spells  ·  ESC pause', W/2, 373, C.dim, FONT_SM, 'center');
 
+  text('by joe accardi', W/2, H - 30, C.dim, FONT_SM, 'center');
   const crtStr = '[C] CRT: ' + (crtEnabled ? 'ON ' : 'OFF');
   text(crtStr, W/2, H - 16, crtEnabled ? C.txt : C.dim, FONT_SM, 'center');
 }
