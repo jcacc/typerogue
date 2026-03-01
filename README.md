@@ -1,6 +1,6 @@
 # TYPEROGUE
 
-A typing roguelike. Type words to deal damage. Survive three floors.
+A typing roguelike inspired by Vampire Survivors and memories of typing in a terminal growing up. Type words to deal damage. Survive three floors.
 
 ## How to play
 
