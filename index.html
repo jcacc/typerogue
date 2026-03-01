@@ -7,17 +7,40 @@
   <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
   <style>
     * { margin:0; padding:0; box-sizing:border-box; }
-    body {
-      background:#000;
-      display:flex; justify-content:center; align-items:center;
-      height:100vh; overflow:hidden;
+    body { background:#000; display:flex; justify-content:center; align-items:center; height:100vh; overflow:hidden; }
+    #game {
+      width:800px; height:520px;
       font-family:'Space Mono','Courier New',monospace;
+      font-size:13px; line-height:1.6;
+      color:#666;
+      position:relative; overflow:hidden;
     }
-    canvas { display:block; image-rendering:pixelated; }
+    #screen {
+      position:absolute; top:0; left:0;
+      width:800px; height:520px;
+      padding:14px 18px;
+      white-space:pre; overflow:hidden;
+    }
+    #word-layer, #float-layer {
+      position:absolute; top:0; left:0;
+      width:100%; height:100%;
+      pointer-events:none;
+    }
+    .w, .fl {
+      position:absolute;
+      transform:translateX(-50%);
+      white-space:nowrap;
+      font-family:'Space Mono','Courier New',monospace;
+      font-size:13px; font-weight:bold; line-height:1;
+    }
   </style>
 </head>
 <body>
-<canvas id="c"></canvas>
+<div id="game">
+  <div id="screen"></div>
+  <div id="word-layer"></div>
+  <div id="float-layer"></div>
+</div>
 
 <script src="words.js"></script>
 <script src="rogue-audio.js"></script>
@@ -25,94 +48,40 @@
 <script>
 'use strict';
 
-// ── Canvas ─────────────────────────────────────────────────────────────────────
-const canvas = document.getElementById('c');
-const cx = canvas.getContext('2d');
-const W = 800, H = 520;
-canvas.width = W; canvas.height = H;
+const RD = window.ROGUE_DATA;
+const RA = window.ROGUE_AUDIO;
+const screen   = document.getElementById('screen');
+const wordLayer = document.getElementById('word-layer');
+const floatLayer = document.getElementById('float-layer');
 
-function resize() {
-  const s = Math.min(window.innerWidth / W, window.innerHeight / H, 1.6);
-  canvas.style.width  = (W * s) + 'px';
-  canvas.style.height = (H * s) + 'px';
-}
-window.addEventListener('resize', resize); resize();
+const W = 800, H = 520;
+const WORD_SPAWN_Y = 115;
+const WORD_EXIT_Y  = 355;
+const LANE_X = [200, 400, 600];
 
 // ── Colors ─────────────────────────────────────────────────────────────────────
 const C = {
-  bg:     '#000000',
-  txt:    '#666666',
-  hi:     '#aaaaaa',
-  dim:    '#333333',
-  white:  '#cccccc',
-  gold:   '#886600',
-  red:    '#993333',
-  blue:   '#336699',
-  purple: '#554488',
-  cyan:   '#226655',
+  bg:'#000', txt:'#666', hi:'#aaa', dim:'#333', white:'#ccc',
+  gold:'#886600', red:'#993333', blue:'#336699', purple:'#554488', cyan:'#226655',
 };
 
-// ── Constants ──────────────────────────────────────────────────────────────────
-const FONT    = "bold 15px 'Space Mono','Courier New',monospace";
-const FONT_SM = "11px 'Space Mono','Courier New',monospace";
-const FONT_LG = "bold 22px 'Space Mono','Courier New',monospace";
-const FONT_XL = "bold 32px 'Space Mono','Courier New',monospace";
+// ── HTML helpers ───────────────────────────────────────────────────────────────
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function sp(text, color) { return `<span style="color:${color}">${esc(text)}</span>`; }
+function dim(t)  { return sp(t, C.dim); }
+function hi(t)   { return sp(t, C.hi); }
+function wh(t)   { return sp(t, C.white); }
 
-// Combat room bounds
-const RM = { x:30, y:50, w:740, h:390 };
-const WALL = 28;
-const FLOOR_X1 = RM.x + WALL;
-const FLOOR_Y1 = RM.y + WALL;
-const FLOOR_X2 = RM.x + RM.w - WALL;
-const FLOOR_Y2 = RM.y + RM.h - WALL;
-const FLOOR_W  = FLOOR_X2 - FLOOR_X1;
-const FLOOR_H  = FLOOR_Y2 - FLOOR_Y1;
-
-const ENEMY_CX  = W / 2;
-const ENEMY_CY  = FLOOR_Y1 + 58;
-const PLAYER_CX = W / 2;
-const PLAYER_CY = FLOOR_Y2 - 58;
-
-const WORD_SPAWN_Y = ENEMY_CY  + 48;
-const WORD_EXIT_Y  = PLAYER_CY - 40;
-
-const LANE_X = [FLOOR_X1 + 95, W / 2, FLOOR_X2 - 95];
-
-const RD = window.ROGUE_DATA;
-const RA = window.ROGUE_AUDIO;
-
-// ── CRT filter ─────────────────────────────────────────────────────────────────
-let crtEnabled = false;
-
-// ── ASCII Sprites ──────────────────────────────────────────────────────────────
-const ASCII_ENEMY = {
-  goblin_scout:   [' .o. ', '(o_o)', ' |g| '],
-  cave_troll:     [' _O_ ', '[T_T]', ' )_( '],
-  cursed_tome:    ['.---.', '| & |', "'---'"],
-  goblin_king:    ['<K_K>', '-[K]-', ' ]|[ '],
-  dire_rat:       [' ~~~ ', '(r.r)', ' u u '],
-  goblin_shaman:  [' ~S~ ', '(S*S)', ' |~| '],
-  shadow_archer:  [' .A. ', '>-A->', '  |  '],
-  void_wraith:    ['~W~W~', ')w~.(', ' ~~~ '],
-  bone_oracle:    ['.O_O.', '|o+o|', ' ||| '],
-  lich_lord:      [' _L_ ', '[L.L]', ' }|{ '],
-  plague_knight:  [' *K* ', '[K_K]', ' /|\\'],
-  spectral_wolf:  ['.w.w.', '(w.w)', ' u u '],
-  storm_knight:   [' *K* ', '[K+K]', ' ||| '],
-  dread_sorcerer: [' {S} ', '(S~S)', ' |*| '],
-  iron_golem:     ['[G_G]', '|G+G|', '[___]'],
-  tyrant_prime:   ['*[T]*', '[T_T]', '*[T]*'],
-};
-
-const ASCII_PLAYER = {
-  warrior: [' [@] ', '[W+W]', '  Y  '],
-  rogue:   [' [@] ', '-[R]-', ' /|\\'],
-  mage:    [' *** ', ' [@] ', ' |+| '],
-};
+function bar(hp, maxHp, label) {
+  const pct = Math.max(0, Math.min(hp / maxHp, 1));
+  const n = 16, filled = Math.round(pct * n);
+  const b = '[' + '='.repeat(filled) + '.'.repeat(n - filled) + ']';
+  const col = hp < maxHp * 0.3 ? C.red : hp < maxHp * 0.6 ? C.gold : C.txt;
+  return (label ? sp(label + ' ', C.dim) : '') + sp(b, col) + sp(' ' + hp + '/' + maxHp, col);
+}
 
 // ── State ──────────────────────────────────────────────────────────────────────
 let G = { screen:'title' };
-
 let titleTick = 0;
 let classSelectIdx = 0;
 const CLASS_IDS = ['warrior', 'rogue', 'mage'];
@@ -124,395 +93,67 @@ let enemy = null;
 let combatTick = 0, spawnTimer = 0, attackTimer = 0, pickupTimer = 0;
 let freezeTimer = 0, hasteTimer = 0, flashTimer = 0;
 let flashMsg = '', flashColor = '#fff';
-let scrambleTimer = 0;
-let invisWordCount = 0;
-
+let scrambleTimer = 0, invisWordCount = 0;
 let P = {};
-
 let upgradeOptions = [], upgradeChosen = false;
-
-// Float text only (no particles)
 let floats = [];
-
 let paused = false;
 
-// ── Map room type metadata ─────────────────────────────────────────────────────
 const ROOM_TYPE_META = {
-  combat:  { icon:'!', label:'Combat',  color: C.red    },
-  elite:   { icon:'%', label:'Elite',   color: C.purple },
-  shop:    { icon:'$', label:'Shop',    color: C.gold   },
-  rest:    { icon:'+', label:'Rest',    color: C.cyan   },
-  boss:    { icon:'B', label:'BOSS',    color:'#993366' },
-  entry:   { icon:'>', label:'Start',   color: C.blue   },
+  combat: { icon:'!', label:'Combat', color:C.red    },
+  elite:  { icon:'%', label:'Elite',  color:C.purple },
+  shop:   { icon:'$', label:'Shop',   color:C.gold   },
+  rest:   { icon:'+', label:'Rest',   color:C.cyan   },
+  boss:   { icon:'B', label:'BOSS',   color:'#993366'},
+  entry:  { icon:'>', label:'Start',  color:C.blue   },
 };
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 function rnd(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
-function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+function clamp(v, lo, h) { return Math.max(lo, Math.min(h, v)); }
 
 function pickWord() {
   const tiers = window.TYPERUN_WORDS.tiers;
-  const e = enemy;
   let pool = [];
-  (e.wordTiers || [0,1]).forEach(t => pool.push(...tiers[t]));
-  if (P.upgrades && P.upgrades.includes('dk_purge'))
-    pool = pool.filter(w => w.length < 10);
-  if (P.upgrades && P.upgrades.includes('dk_inject'))
-    pool = pool.concat(RD.powerWords);
-  if (P.upgrades && P.upgrades.includes('dk_chaos'))
-    pool = pool.filter(w => w.length >= 5);
+  (enemy.wordTiers || [0,1]).forEach(t => pool.push(...tiers[t]));
+  if (P.upgrades && P.upgrades.includes('dk_purge'))  pool = pool.filter(w => w.length < 10);
+  if (P.upgrades && P.upgrades.includes('dk_inject')) pool = pool.concat(RD.powerWords);
+  if (P.upgrades && P.upgrades.includes('dk_chaos'))  pool = pool.filter(w => w.length >= 5);
   const onScreen = new Set(words.map(w => w.text));
   const fresh = pool.filter(w => !onScreen.has(w));
   return rnd(fresh.length ? fresh : pool) || 'bash';
 }
 
-// ── Text helpers ───────────────────────────────────────────────────────────────
-function text(str, x, y, color, font, align) {
-  cx.fillStyle = color || C.txt;
-  cx.font = font || FONT;
-  cx.textAlign = align || 'left';
-  cx.fillText(str, x, y);
-  cx.textAlign = 'left';
-}
-
-function wrapText(str, x, y, maxW, lineH, align) {
-  const ws = str.split(' ');
-  let line = '', lineY = y;
-  cx.textAlign = align || 'left';
-  ws.forEach(w => {
-    const test = line + (line ? ' ' : '') + w;
-    if (cx.measureText(test).width > maxW && line) {
-      cx.fillText(line, align === 'center' ? x + maxW/2 : x, lineY);
-      line = w; lineY += lineH;
-    } else { line = test; }
-  });
-  if (line) cx.fillText(line, align === 'center' ? x + maxW/2 : x, lineY);
-  cx.textAlign = 'left';
-}
-
-// ASCII HP bar: [====....] hp/max
-function asciiBar(x, y, hp, maxHp, label) {
-  const pct = clamp(hp / maxHp, 0, 1);
-  const n = 16;
-  const filled = Math.round(pct * n);
-  const bar = '[' + '='.repeat(filled) + '.'.repeat(n - filled) + ']';
-  const col = hp < maxHp * 0.3 ? C.red : (hp < maxHp * 0.6 ? C.gold : C.txt);
-  const line = (label ? label + ' ' : '') + bar + ' ' + hp + '/' + maxHp;
-  cx.fillStyle = col;
-  cx.font = FONT_SM;
-  cx.fillText(line, x, y);
-}
-
-// ── Box-drawing dungeon room ───────────────────────────────────────────────────
-const BOX_FONT = "14px 'Space Mono','Courier New',monospace";
-const BOX_CW = 8.4;
-const BOX_CH = 18;
-
-function drawDungeonRoom() {
-  cx.font = BOX_FONT;
-  cx.textAlign = 'left';
-
-  const cols = Math.round(RM.w / BOX_CW);
-  const rows = 21;
-  const x0 = RM.x;
-  const y0 = RM.y + BOX_CH - 4;
-
-  cx.fillStyle = C.dim;
-  cx.fillText('╔' + '═'.repeat(cols - 2) + '╗', x0, y0);
-  cx.fillText('╚' + '═'.repeat(cols - 2) + '╝', x0, y0 + (rows - 1) * BOX_CH);
-
-  for (let r = 1; r < rows - 1; r++) {
-    cx.fillText('║', x0, y0 + r * BOX_CH);
-    cx.fillText('║', x0 + (cols - 1) * BOX_CW, y0 + r * BOX_CH);
-  }
-
-  // Middle divider
-  const midRow = 10;
-  cx.fillStyle = '#1a1a1a';
-  cx.fillText('╟' + '─'.repeat(cols - 2) + '╢', x0, y0 + midRow * BOX_CH);
-
-  // Floor dots
-  cx.fillStyle = '#0d0d0d';
-  for (let r = 2; r < rows - 1; r++) {
-    if (r === midRow) continue;
-    for (let c = 3; c < cols - 2; c += 4) {
-      cx.fillText('·', x0 + c * BOX_CW, y0 + r * BOX_CH);
-    }
-  }
-}
-
-// ── ASCII torch ────────────────────────────────────────────────────────────────
-function drawTorch(x, y) {
-  const flicker = Math.sin(combatTick * 0.02 + x) > 0;
-  cx.font = "bold 11px 'Space Mono',monospace";
-  cx.textAlign = 'center';
-  cx.fillStyle = flicker ? '#664422' : '#443311';
-  cx.fillText(flicker ? '^' : '*', x, y - 6);
-  cx.fillStyle = '#332211';
-  cx.fillText('|', x, y + 4);
-  cx.textAlign = 'left';
-}
-
-// ── Entity sprites ─────────────────────────────────────────────────────────────
-function drawEnemy(enemyData, x, y, hp, maxHp, phase) {
-  const bob = Math.sin(combatTick * 0.006) * 2;
-  const sprite = ASCII_ENEMY[enemyData.id] || ['[???]', ' (?) ', '  ?  '];
-
-  cx.font = "bold 13px 'Space Mono','Courier New',monospace";
-  cx.textAlign = 'center';
-  sprite.forEach((line, i) => {
-    cx.fillStyle = i === 1 ? (enemyData.color || C.red) : C.dim;
-    cx.fillText(line, x, y + bob + (i - 1) * 15);
-  });
-
-  if (phase > 0) {
-    cx.font = "bold 9px 'Space Mono',monospace";
-    cx.fillStyle = '#993366';
-    cx.fillText('** PHASE **', x, y + bob - 28);
-  }
-  cx.textAlign = 'left';
-}
-
-function drawPlayer(classId, x, y) {
-  const bob = Math.sin(combatTick * 0.007) * 1.5;
-  const sprite = ASCII_PLAYER[classId] || [' [@] ', '  @  ', '  Y  '];
-  const clsColor = RD.classes[classId] ? RD.classes[classId].color : C.hi;
-
-  cx.font = "bold 13px 'Space Mono','Courier New',monospace";
-  cx.textAlign = 'center';
-  sprite.forEach((line, i) => {
-    cx.fillStyle = i === 1 ? clsColor : C.dim;
-    cx.fillText(line, x, y + bob + (i - 1) * 15);
-  });
-  cx.textAlign = 'left';
-}
-
-// ── Words ──────────────────────────────────────────────────────────────────────
-function drawWords() {
-  cx.font = FONT;
-  words.forEach((w, i) => {
-    if (w.invisible && w.invisBlinkTimer > 0 && Math.floor(w.invisBlinkTimer / 200) % 2 === 0) return;
-
-    const isActive = (i === activeWordIdx);
-    const isAttack = w.isAttack;
-    const txt = w.text;
-    const typedLen = isActive ? typed.length : 0;
-
-    if (w.isPickup) {
-      const eff = w.pickupEffect;
-      const blink = Math.floor(Date.now() / 400) % 2 === 0;
-      if (typedLen > 0) {
-        const done = txt.slice(0, typedLen);
-        const rest = txt.slice(typedLen);
-        const fullW = cx.measureText(txt).width;
-        let dx = w.x - fullW / 2;
-        cx.fillStyle = C.white; cx.fillText(done, dx, w.y);
-        dx += cx.measureText(done).width;
-        cx.fillStyle = C.dim; cx.fillText(rest, dx, w.y);
-      } else {
-        cx.textAlign = 'center';
-        cx.fillStyle = isActive ? C.white : (blink ? eff.color : C.dim);
-        cx.fillText(txt, w.x, w.y);
-        cx.textAlign = 'left';
-      }
-      cx.font = "bold 9px 'Space Mono',monospace";
-      cx.textAlign = 'center';
-      cx.fillStyle = eff.color;
-      cx.fillText(eff.label, w.x, w.y + 14);
-      cx.font = FONT;
-      cx.textAlign = 'left';
-      return;
-    }
-
-    if (typedLen > 0 && isActive) {
-      const done = txt.slice(0, typedLen);
-      const rest = txt.slice(typedLen);
-      const fullW = cx.measureText(txt).width;
-      let dx = w.x - fullW / 2;
-      cx.fillStyle = C.white;
-      cx.fillText(done, dx, w.y);
-      dx += cx.measureText(done).width;
-      cx.fillStyle = isAttack ? C.red : C.dim;
-      cx.fillText(rest, dx, w.y);
-    } else {
-      cx.textAlign = 'center';
-      cx.fillStyle = isAttack ? C.red : (isActive ? C.hi : C.txt);
-      cx.fillText(txt, w.x, w.y);
-      cx.textAlign = 'left';
-    }
-  });
-}
-
-// ── Float text ─────────────────────────────────────────────────────────────────
-function spawnFloat(x, y, str, color) {
-  floats.push({ x, y, str, color, life: 1, vy: -1.2 });
-}
-
-function updateFloats(dt) {
-  for (let i = floats.length - 1; i >= 0; i--) {
-    const f = floats[i];
-    f.y += f.vy; f.life -= 0.018;
-    if (f.life <= 0) floats.splice(i, 1);
-  }
-}
-
-function drawFloats() {
-  floats.forEach(f => {
-    cx.globalAlpha = f.life;
-    cx.font = "bold 13px 'Space Mono',monospace";
-    cx.textAlign = 'center';
-    cx.fillStyle = f.color;
-    cx.fillText(f.str, f.x, f.y);
-    cx.textAlign = 'left';
-  });
-  cx.globalAlpha = 1;
-}
-
-// ── CRT overlay ────────────────────────────────────────────────────────────────
-function drawCRTOverlay() {
-  if (!crtEnabled) return;
-  cx.globalAlpha = 0.14;
-  cx.fillStyle = '#000';
-  for (let sy = 0; sy < H; sy += 3) cx.fillRect(0, sy, W, 1);
-  cx.globalAlpha = 1;
-  if (Math.random() < 0.008) {
-    cx.globalAlpha = 0.05;
-    cx.fillStyle = '#ffffff';
-    cx.fillRect(0, Math.floor(Math.random() * H), W, 1);
-    cx.globalAlpha = 1;
-  }
-}
-
-// ── MAP ────────────────────────────────────────────────────────────────────────
+// ── Map generation ─────────────────────────────────────────────────────────────
 function generateFloor(floorNum) {
   const nodes = [];
   const FE = RD.floorEnemies[floorNum];
   const normalPool = [...FE.normal].sort(() => Math.random() - 0.5);
-
-  function mkNode(type, enemyId, col, row) {
-    return { type, enemyId: enemyId || null, col, row, cleared:false, reachable:false, id: nodes.length };
+  function mk(type, enemyId, col, row) {
+    return { type, enemyId: enemyId || null, col, row, cleared:false, reachable:false, id:nodes.length };
   }
-
-  nodes.push(mkNode('entry', null, 1, 0));
-  nodes.push(mkNode('combat', normalPool[0] || 'goblin_scout', 0, 1));
-  const hasShopA = Math.random() < 0.5;
-  nodes.push(mkNode(hasShopA ? 'shop' : 'rest', null, 0, 2));
-  nodes.push(mkNode('combat', normalPool[1] || normalPool[0], 0, 3));
-  nodes.push(mkNode('combat', normalPool[2] || normalPool[1] || normalPool[0], 2, 1));
-  nodes.push(mkNode('elite', FE.elite[0], 2, 2));
-  nodes.push(mkNode(hasShopA ? 'rest' : 'shop', null, 2, 3));
-  nodes.push(mkNode('boss', FE.boss, 1, 4));
-
-  const adj = {
-    0: [1, 4],
-    1: [2], 2: [3], 3: [7],
-    4: [5], 5: [6], 6: [7],
-    7: [],
-  };
-
+  nodes.push(mk('entry',  null,           1, 0));
+  nodes.push(mk('combat', normalPool[0],  0, 1));
+  const shopA = Math.random() < 0.5;
+  nodes.push(mk(shopA ? 'shop' : 'rest',  null,           0, 2));
+  nodes.push(mk('combat', normalPool[1] || normalPool[0], 0, 3));
+  nodes.push(mk('combat', normalPool[2] || normalPool[0], 2, 1));
+  nodes.push(mk('elite',  FE.elite[0],    2, 2));
+  nodes.push(mk(shopA ? 'rest' : 'shop',  null,           2, 3));
+  nodes.push(mk('boss',   FE.boss,        1, 4));
+  const adj = { 0:[1,4], 1:[2], 2:[3], 3:[7], 4:[5], 5:[6], 6:[7], 7:[] };
   nodes[0].reachable = true;
-  return { nodes, adj, floor: floorNum };
+  return { nodes, adj, floor:floorNum };
 }
 
 function buildMap() {
-  const floor = P.floor || 1;
-  const mapData = generateFloor(floor);
+  const mapData = generateFloor(P.floor || 1);
   mapNodes = mapData.nodes;
   mapCurIdx = 0;
   mapNodes[0].cleared = true;
   (mapData.adj[0] || []).forEach(i => { mapNodes[i].reachable = true; });
   G.mapAdj = mapData.adj;
   mapSelIdx = 1;
-}
-
-function getReachable() {
-  return mapNodes.filter(n => n.reachable && !n.cleared);
-}
-
-function getNodePos() {
-  const colX = [180, W/2, 620];
-  const rowY  = [95, 185, 270, 355, 445];
-  return mapNodes.map(n => ({ x: colX[n.col], y: rowY[n.row] }));
-}
-
-function drawMapScreen() {
-  cx.fillStyle = C.bg;
-  cx.fillRect(0, 0, W, H);
-
-  text('FLOOR ' + (P.floor || 1), 20, 28, C.dim, FONT_SM);
-  text('DUNGEON MAP', W/2, 28, C.hi, "bold 15px 'Space Mono',monospace", 'center');
-  text('HP: ' + P.hp + '/' + P.maxHp, W - 20, 28, P.hp < P.maxHp * 0.3 ? C.red : C.txt, FONT_SM, 'right');
-
-  const divLine = '─'.repeat(97);
-  text(divLine, W/2, 38, C.dim, FONT_SM, 'center');
-
-  const nodePos = getNodePos();
-
-  // ASCII corridors
-  cx.font = "12px 'Space Mono',monospace";
-  cx.fillStyle = C.dim;
-  const CH = 14;
-  Object.entries(G.mapAdj || {}).forEach(([from, tos]) => {
-    const fp = nodePos[+from];
-    tos.forEach(to => {
-      const tp = nodePos[to];
-      const dy = tp.y - fp.y;
-      const dx = tp.x - fp.x;
-      const steps = Math.round(dy / CH);
-      const char = Math.abs(dx) < 10 ? '|' : (dx > 0 ? '\\' : '/');
-      cx.textAlign = 'center';
-      for (let s = 1; s < steps; s++) {
-        const t = s / steps;
-        cx.fillText(char, fp.x + dx * t, fp.y + CH * s - 2);
-      }
-    });
-  });
-
-  // Nodes (text only)
-  cx.font = "bold 12px 'Space Mono',monospace";
-  mapNodes.forEach((node, i) => {
-    const p = nodePos[i];
-    const meta = ROOM_TYPE_META[node.type] || ROOM_TYPE_META.combat;
-    const isSelected = (i === mapSelIdx);
-    const isCurrent  = (i === mapCurIdx);
-    const isReachable = node.reachable && !node.cleared;
-    const isCleared  = node.cleared;
-
-    cx.globalAlpha = isCleared ? 0.3 : (isReachable ? 1 : 0.4);
-    cx.textAlign = 'center';
-
-    // Selection brackets
-    if (isSelected) {
-      cx.fillStyle = C.white;
-      cx.fillText('[', p.x - 18, p.y);
-      cx.fillText(']', p.x + 18, p.y);
-    }
-
-    cx.fillStyle = isCleared ? C.dim : (isSelected ? C.white : meta.color);
-    cx.fillText(meta.icon, p.x, p.y);
-
-    cx.font = "9px 'Space Mono',monospace";
-    cx.fillStyle = isCleared ? C.dim : (isSelected ? C.white : C.txt);
-    cx.fillText(meta.label.toUpperCase(), p.x, p.y + 14);
-
-    if (isCurrent && !isCleared) {
-      cx.font = "bold 9px 'Space Mono',monospace";
-      cx.fillStyle = C.dim;
-      cx.fillText('YOU', p.x, p.y - 14);
-    }
-
-    cx.font = "bold 12px 'Space Mono',monospace";
-    cx.globalAlpha = 1;
-  });
-
-  cx.textAlign = 'left';
-
-  const divLine2 = '─'.repeat(97);
-  text(divLine2, W/2, H - 26, C.dim, FONT_SM, 'center');
-  text('<- -> navigate    ENTER enter room', W/2, H - 10, C.dim, FONT_SM, 'center');
-  if (P.spells && P.spells.length > 0) {
-    text('spells: ' + P.spells.join(' '), 20, H - 10, C.dim, FONT_SM);
-  }
 }
 
 function mapNavigate(dir) {
@@ -525,38 +166,30 @@ function mapNavigate(dir) {
   mapSelIdx = reachable[(cur + dir + reachable.length) % reachable.length].i;
 }
 
-// ── COMBAT INIT ────────────────────────────────────────────────────────────────
+// ── Combat init ────────────────────────────────────────────────────────────────
 function initCombat(enemyId) {
   const eData = RD.enemies[enemyId];
   if (!eData) { console.error('Unknown enemy:', enemyId); return; }
-
   enemy = {
-    ...eData,
-    hp: eData.hp,
-    currentPhase: 0,
-    phasesFired: new Set(),
-    effectiveSpeed: eData.wordSpeed * (P.wordSpeedMult || 1.0),
-    effectiveInterval: eData.wordInterval,
-    hitFlash: 0,
+    ...eData, hp:eData.hp, currentPhase:0, phasesFired:new Set(),
+    effectiveSpeed:   eData.wordSpeed    * (P.wordSpeedMult || 1.0),
+    effectiveInterval:eData.wordInterval,
   };
-
   words = []; typed = ''; activeWordIdx = -1;
   combatTick = 0;
   spawnTimer  = enemy.effectiveInterval * 0.5;
   attackTimer = enemy.attackInterval * 0.7;
-  freezeTimer = 0; hasteTimer = 0; flashTimer = 0;
-  flashMsg = '';
+  freezeTimer = 0; hasteTimer = 0; flashTimer = 0; flashMsg = '';
   scrambleTimer = eData.special === 'scramble' ? 15000 : 0;
   pickupTimer = 14000 + Math.random() * 8000;
   invisWordCount = 0;
   floats = [];
   paused = false;
-
   if (eData.type === 'boss') RA.setTheme('boss');
   G.screen = 'combat';
 }
 
-// ── COMBAT UPDATE ──────────────────────────────────────────────────────────────
+// ── Combat update ──────────────────────────────────────────────────────────────
 function updateCombat(dt) {
   if (paused) return;
   combatTick += dt;
@@ -564,11 +197,8 @@ function updateCombat(dt) {
   const frozen = freezeTimer > 0;
   if (frozen) freezeTimer -= dt;
   if (hasteTimer > 0) hasteTimer -= dt;
-  if (flashTimer > 0) flashTimer -= dt;
-
-  (P.spellCDs || []).forEach((cd, i) => {
-    if (cd > 0) P.spellCDs[i] = Math.max(0, cd - dt);
-  });
+  if (flashTimer  > 0) flashTimer -= dt;
+  (P.spellCDs || []).forEach((cd, i) => { if (cd > 0) P.spellCDs[i] = Math.max(0, cd - dt); });
 
   if (enemy.id === 'dread_sorcerer') {
     scrambleTimer -= dt;
@@ -579,7 +209,7 @@ function updateCombat(dt) {
     }
   }
 
-  const speedFactor = frozen ? 0 : (hasteTimer > 0 ? 0.6 : 1.0);
+  const speedFactor = frozen ? 0 : hasteTimer > 0 ? 0.6 : 1.0;
   const speedMod = (P.upgrades && P.upgrades.includes('dk_chaos')) ? 2.0 : 1.0;
 
   for (let i = words.length - 1; i >= 0; i--) {
@@ -591,14 +221,14 @@ function updateCombat(dt) {
       if (w.isAttack) {
         let dmg = enemy.attackDmg;
         if (P.shield > 0) {
-          const absorbed = Math.min(dmg, P.shield);
-          P.shield -= absorbed; dmg -= absorbed;
-          spawnFloat(PLAYER_CX, PLAYER_CY - 30, `-${absorbed}shld`, C.blue);
+          const ab = Math.min(dmg, P.shield);
+          P.shield -= ab; dmg -= ab;
+          spawnFloat(W/2, WORD_EXIT_Y - 10, `-${ab}shld`, C.blue);
         }
         if (dmg > 0) {
           P.hp = Math.max(0, P.hp - dmg);
           RA.playPlayerHit();
-          spawnFloat(PLAYER_CX, PLAYER_CY - 30, `-${dmg}`, C.red);
+          spawnFloat(W/2, WORD_EXIT_Y - 10, `-${dmg}`, C.red);
           flashTimer = 400; flashMsg = `-${dmg} HP`; flashColor = C.red;
         }
         if (i === activeWordIdx) { typed = ''; activeWordIdx = -1; }
@@ -610,37 +240,26 @@ function updateCombat(dt) {
   }
 
   spawnTimer -= dt;
-  if (spawnTimer <= 0) {
-    spawnCombatWord();
-    spawnTimer = enemy.effectiveInterval * (frozen ? 2 : 1);
-  }
+  if (spawnTimer <= 0) { spawnCombatWord(); spawnTimer = enemy.effectiveInterval * (frozen ? 2 : 1); }
 
   attackTimer -= dt;
-  if (attackTimer <= 0) {
-    spawnCombatWord(true);
-    attackTimer = enemy.attackInterval;
-  }
+  if (attackTimer <= 0) { spawnCombatWord(true); attackTimer = enemy.attackInterval; }
 
   if (!frozen) {
     pickupTimer -= dt;
-    if (pickupTimer <= 0) {
-      spawnPickup();
-      pickupTimer = 14000 + Math.random() * 8000;
-    }
+    if (pickupTimer <= 0) { spawnPickup(); pickupTimer = 14000 + Math.random() * 8000; }
   }
 
   if (enemy.phases && enemy.phases.length > 0) {
-    const enemyMaxHp = RD.enemies[enemy.id].hp;
+    const maxHp = RD.enemies[enemy.id].hp;
     enemy.phases.forEach((ph, idx) => {
-      if (!enemy.phasesFired.has(idx) && enemy.hp / enemyMaxHp <= ph.hpThreshold) {
+      if (!enemy.phasesFired.has(idx) && enemy.hp / maxHp <= ph.hpThreshold) {
         enemy.phasesFired.add(idx);
-        enemy.effectiveSpeed   *= (ph.speedMult || 1);
-        enemy.effectiveInterval *= (ph.intervalMult || 1);
+        enemy.effectiveSpeed    *= ph.speedMult    || 1;
+        enemy.effectiveInterval *= ph.intervalMult || 1;
         enemy.currentPhase = idx + 1;
         RA.playBossPhase();
-        flashMsg = ph.announce || 'PHASE CHANGE!';
-        flashColor = '#993366';
-        flashTimer = 2000;
+        flashMsg = ph.announce || 'PHASE CHANGE!'; flashColor = '#993366'; flashTimer = 2000;
         spawnFloat(W/2, H/2, ph.announce || 'PHASE!', '#993366');
       }
     });
@@ -652,10 +271,7 @@ function updateCombat(dt) {
     if (P.deathless && !P.deathlessUsed) {
       P.hp = 1; P.deathlessUsed = true;
       flashMsg = 'DEATHLESS!'; flashColor = '#993366'; flashTimer = 1500;
-    } else {
-      RA.playGameOver(); RA.stopMusic(1.5);
-      G.screen = 'gameover'; return;
-    }
+    } else { RA.playGameOver(); RA.stopMusic(1.5); G.screen = 'gameover'; return; }
   }
 
   if (enemy.hp <= 0) {
@@ -668,9 +284,7 @@ function updateCombat(dt) {
     if (P.regenPerRoom) P.hp = Math.min(P.maxHp, P.hp + P.regenPerRoom);
 
     if (enemy.type === 'boss') {
-      if (enemy.id === 'tyrant_prime') {
-        G.screen = 'victory'; RA.playVictory(); RA.stopMusic(2); return;
-      }
+      if (enemy.id === 'tyrant_prime') { G.screen = 'victory'; RA.playVictory(); RA.stopMusic(2); return; }
       P.floor = (P.floor || 1) + 1;
       RA.setTheme('dungeon'); G.screen = 'combat_result';
     } else {
@@ -683,32 +297,24 @@ function updateCombat(dt) {
 function spawnCombatWord(isAttack) {
   const isInvis = enemy.special === 'invisible' && !isAttack && (invisWordCount % 3 === 2);
   if (enemy.special === 'invisible') invisWordCount++;
-
   const atkWords = RD.attackWords[enemy.floor] || RD.attackWords[1];
   const txt = isAttack ? rnd(atkWords) : pickWord();
-  const laneIdx = Math.floor(Math.random() * 3);
-  const xOff = (Math.random() - 0.5) * 50;
-
   words.push({
-    text: txt,
-    x: LANE_X[laneIdx] + xOff,
-    y: WORD_SPAWN_Y,
-    speed: enemy.effectiveSpeed,
-    isAttack: !!isAttack,
-    invisible: !!isInvis,
-    invisBlinkTimer: isInvis ? 800 : 0,
+    text:txt, x:LANE_X[Math.floor(Math.random()*3)] + (Math.random()-0.5)*50,
+    y:WORD_SPAWN_Y, speed:enemy.effectiveSpeed,
+    isAttack:!!isAttack, invisible:!!isInvis, invisBlinkTimer:isInvis ? 800 : 0,
   });
   updateActiveWord();
 }
 
-// ── PICKUPS ────────────────────────────────────────────────────────────────────
-const PICKUP_SYMS = ['!', '@', '#', '$', '%', '&', '*', '(', ')'];
+// ── Pickups ────────────────────────────────────────────────────────────────────
+const PICKUP_SYMS = ['!','@','#','$','%','&','*','(',')'];
 const PICKUP_EFFECTS = [
-  { type:'hp',     amount:20,  label:'+20hp',   color:C.cyan },
-  { type:'hp',     amount:35,  label:'+35hp',   color:C.cyan },
-  { type:'gold',   amount:25,  label:'+¢25',    color:C.gold },
-  { type:'shield', amount:20,  label:'+shld20', color:C.blue },
-  { type:'dmg',    amount:0.3, label:'+0.3dmg', color:C.hi   },
+  { type:'hp',     amount:20,  label:'+20hp',   color:C.cyan  },
+  { type:'hp',     amount:35,  label:'+35hp',   color:C.cyan  },
+  { type:'gold',   amount:25,  label:'+¢25',    color:C.gold  },
+  { type:'shield', amount:20,  label:'+shld20', color:C.blue  },
+  { type:'dmg',    amount:0.3, label:'+0.3dmg', color:C.hi    },
 ];
 
 function spawnPickup() {
@@ -716,12 +322,10 @@ function spawnPickup() {
   const len = Math.random() < 0.5 ? 2 : 3;
   let sym = '';
   for (let i = 0; i < len; i++) sym += PICKUP_SYMS[Math.floor(Math.random() * PICKUP_SYMS.length)];
-  const laneIdx = Math.floor(Math.random() * 3);
-  const xOff = (Math.random() - 0.5) * 40;
   words.push({
-    text: sym, x: LANE_X[laneIdx] + xOff, y: WORD_SPAWN_Y,
-    speed: 9, isAttack: false, invisible: false, invisBlinkTimer: 0,
-    isPickup: true, pickupEffect: eff,
+    text:sym, x:LANE_X[Math.floor(Math.random()*3)] + (Math.random()-0.5)*40,
+    y:WORD_SPAWN_Y, speed:9, isAttack:false, invisible:false, invisBlinkTimer:0,
+    isPickup:true, pickupEffect:eff,
   });
   updateActiveWord();
 }
@@ -731,113 +335,19 @@ function updateActiveWord() {
   activeWordIdx = words.findIndex(w => w.text.startsWith(typed));
 }
 
-// ── INPUT ──────────────────────────────────────────────────────────────────────
-function processKey(key) {
-  if (G.screen === 'title') {
-    if (key === 'Enter') { G.screen = 'class_select'; RA.startMusic('dungeon'); }
-    if (key === 'c' || key === 'C') crtEnabled = !crtEnabled;
-    return;
-  }
-
-  if (G.screen === 'class_select') {
-    if (key === 'ArrowLeft')  classSelectIdx = (classSelectIdx + 2) % 3;
-    if (key === 'ArrowRight') classSelectIdx = (classSelectIdx + 1) % 3;
-    if (key === 'Enter')      startRun(CLASS_IDS[classSelectIdx]);
-    return;
-  }
-
-  if (G.screen === 'map') {
-    if (key === 'ArrowLeft')  mapNavigate(-1);
-    if (key === 'ArrowRight') mapNavigate(1);
-    if (key === 'Enter') {
-      const node = mapNodes[mapSelIdx];
-      if (node && node.reachable && !node.cleared) enterNode(mapSelIdx);
-    }
-    return;
-  }
-
-  if (G.screen === 'combat') {
-    if (key === 'Escape') { paused = !paused; return; }
-    if (paused) {
-      if (key === 'm' || key === 'M') RA.toggleMute();
-      if (key === 'c' || key === 'C') crtEnabled = !crtEnabled;
-      return;
-    }
-
-    if (P.spells && P.spells.length > 0) {
-      const spellIdx = parseInt(key) - 1;
-      if (spellIdx >= 0 && spellIdx < P.spells.length) { activateSpell(spellIdx); return; }
-    }
-
-    if (key === 'Backspace') { typed = typed.slice(0, -1); updateActiveWord(); return; }
-    if (key.length !== 1) return;
-
-    const nextTyped = typed + key;
-
-    if (P.spells) {
-      const spIdx = P.spells.findIndex(s => s === nextTyped);
-      if (spIdx >= 0) { activateSpell(spIdx); typed = ''; activeWordIdx = -1; return; }
-    }
-
-    const match = words.find(w => w.text.startsWith(nextTyped));
-    if (match) {
-      typed = nextTyped; RA.playKeyCorrect(); updateActiveWord();
-      if (match.text === typed) destroyWord(words.indexOf(match));
-    } else {
-      RA.playKeyWrong();
-      if (typed.length > 0) typed = '';
-      const single = words.find(w => w.text.startsWith(key));
-      if (single) {
-        typed = key; updateActiveWord();
-        if (single.text === typed) destroyWord(words.indexOf(single));
-      } else { typed = ''; activeWordIdx = -1; }
-    }
-    return;
-  }
-
-  if (G.screen === 'upgrade' || G.screen === 'combat_result') {
-    if (!upgradeChosen && G.screen === 'upgrade') {
-      const idx = parseInt(key) - 1;
-      if (idx >= 0 && idx < upgradeOptions.length) {
-        applyUpgrade(upgradeOptions[idx]); upgradeChosen = true; RA.playUpgradePick();
-        setTimeout(() => { RA.setTheme('dungeon'); G.screen = 'map'; }, 700);
-      }
-    } else if (G.screen === 'combat_result' && key === 'Enter') {
-      buildMap(); RA.setTheme('dungeon'); G.screen = 'map';
-    }
-    return;
-  }
-
-  if (G.screen === 'shop') {
-    if (key === 'Escape') { G.screen = 'map'; return; }
-    if (key === 'ArrowUp')   G.shopIdx = Math.max(0, (G.shopIdx || 0) - 1);
-    if (key === 'ArrowDown') G.shopIdx = Math.min((G.shopItems || []).length - 1, (G.shopIdx || 0) + 1);
-    if (key === 'Enter') {
-      const item = (G.shopItems || [])[(G.shopIdx || 0)];
-      if (item && P.gold >= item.cost && !item.owned) {
-        P.gold -= item.cost; applyUpgrade(item.upgrade); item.owned = true; RA.playUpgradePick();
-      }
-    }
-    return;
-  }
-
-  if (G.screen === 'rest') {
-    if (key === 'Enter') {
-      P.hp = Math.min(P.maxHp, P.hp + Math.floor(P.maxHp * 0.35));
-      mapNodes[G.restNodeIdx].cleared = true;
-      (G.mapAdj[G.restNodeIdx] || []).forEach(i => { mapNodes[i].reachable = true; });
-      mapSelIdx = (G.mapAdj[G.restNodeIdx] || [])[0] || 0;
-      G.screen = 'map';
-    }
-    return;
-  }
-
-  if (G.screen === 'gameover' || G.screen === 'victory') {
-    if (key === 'Enter') G.screen = 'title';
-    return;
+// ── Float text ─────────────────────────────────────────────────────────────────
+function spawnFloat(x, y, str, color) {
+  floats.push({ x, y, str, color, life:1, vy:-0.8 });
+}
+function updateFloats(dt) {
+  for (let i = floats.length - 1; i >= 0; i--) {
+    const f = floats[i];
+    f.y += f.vy; f.life -= 0.018;
+    if (f.life <= 0) floats.splice(i, 1);
   }
 }
 
+// ── Destroy word ───────────────────────────────────────────────────────────────
 function destroyWord(idx) {
   if (idx < 0 || idx >= words.length) return;
   const w = words[idx];
@@ -867,7 +377,7 @@ function destroyWord(idx) {
 
   if (P.vampiric) {
     P.hp = Math.min(P.maxHp, P.hp + 2);
-    spawnFloat(PLAYER_CX + 20, PLAYER_CY - 20, '+2', C.txt);
+    spawnFloat(W/2 + 20, WORD_EXIT_Y - 20, '+2', C.txt);
   }
 
   words.splice(idx, 1);
@@ -875,68 +385,48 @@ function destroyWord(idx) {
   typed = ''; updateActiveWord();
 }
 
+// ── Spells ─────────────────────────────────────────────────────────────────────
 function activateSpell(spellIdx) {
   const spellName = P.spells[spellIdx];
-  const cd = P.spellCDs[spellIdx];
-  if (cd > 0) return;
-
+  if ((P.spellCDs[spellIdx] || 0) > 0) return;
   const upg = RD.upgrades.find(u => u.spell === spellName);
   if (!upg) return;
-
   const amp = P.spellAmp ? 1.5 : 1.0;
   P.spellCDs[spellIdx] = upg.cd;
   RA.playSpellCast();
-
   switch (spellName) {
-    case 'freeze':
-      freezeTimer = 3000 * amp;
-      spawnFloat(W/2, ENEMY_CY, 'FREEZE!', C.blue);
-      break;
-    case 'shield':
-      P.shield = (P.shield || 0) + Math.floor(30 * amp);
-      spawnFloat(PLAYER_CX, PLAYER_CY - 30, `SHIELD+${Math.floor(30*amp)}`, C.blue);
-      break;
+    case 'freeze':  freezeTimer = 3000 * amp; spawnFloat(W/2, 160, 'FREEZE!', C.blue); break;
+    case 'shield':  P.shield = (P.shield||0) + Math.floor(30*amp); spawnFloat(W/2, WORD_EXIT_Y-30, `SHIELD+${Math.floor(30*amp)}`, C.blue); break;
     case 'nova': {
-      const wCount = words.length;
-      const novaDmg = Math.floor(15 * amp);
-      enemy.hp = Math.max(0, enemy.hp - wCount * novaDmg);
-      spawnFloat(W/2, H/2, `NOVA! -${wCount * novaDmg}`, C.hi);
-      words = []; typed = ''; activeWordIdx = -1;
-      break;
+      const nd = Math.floor(15*amp);
+      enemy.hp = Math.max(0, enemy.hp - words.length * nd);
+      spawnFloat(W/2, H/2, `NOVA! -${words.length*nd}`, C.hi);
+      words = []; typed = ''; activeWordIdx = -1; break;
     }
-    case 'haste':
-      hasteTimer = 5000 * amp;
-      spawnFloat(W/2, ENEMY_CY, 'HASTE!', C.gold);
-      break;
+    case 'haste':   hasteTimer = 5000 * amp; spawnFloat(W/2, 160, 'HASTE!', C.gold); break;
     case 'drain': {
-      const drainAmt = Math.floor(20 * amp);
-      enemy.hp = Math.max(0, enemy.hp - drainAmt);
-      P.hp = Math.min(P.maxHp, P.hp + drainAmt);
-      spawnFloat(W/2, H/2, `DRAIN +${drainAmt}HP`, C.txt);
-      break;
+      const da = Math.floor(20*amp);
+      enemy.hp = Math.max(0, enemy.hp - da);
+      P.hp = Math.min(P.maxHp, P.hp + da);
+      spawnFloat(W/2, H/2, `DRAIN +${da}HP`, C.txt); break;
     }
     case 'blast': {
-      const blastDmg = Math.floor(80 * amp);
-      enemy.hp = Math.max(0, enemy.hp - blastDmg);
-      spawnFloat(ENEMY_CX, ENEMY_CY - 30, `-${blastDmg}`, C.hi);
-      break;
+      const bd = Math.floor(80*amp);
+      enemy.hp = Math.max(0, enemy.hp - bd);
+      spawnFloat(W/2, 160, `-${bd}`, C.hi); break;
     }
   }
 }
 
-// ── UPGRADES ───────────────────────────────────────────────────────────────────
+// ── Upgrades ───────────────────────────────────────────────────────────────────
 function pickUpgrades(count) {
-  const pool = [...RD.upgrades];
-  for (let i = pool.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [pool[i], pool[j]] = [pool[j], pool[i]];
-  }
+  const pool = [...RD.upgrades].sort(() => Math.random() - 0.5);
   const result = [], usedTypes = new Set();
   for (const u of pool) {
     if (result.length >= count) break;
     if (!usedTypes.has(u.type)) { result.push(u); usedTypes.add(u.type); }
   }
-  while (result.length < count && pool.length > result.length) {
+  while (result.length < count) {
     const u = pool.find(x => !result.includes(x));
     if (u) result.push(u); else break;
   }
@@ -947,39 +437,32 @@ function applyUpgrade(upg) {
   if (!upg) return;
   if (!P.upgrades) P.upgrades = [];
   P.upgrades.push(upg.id);
-
   const e = upg.effect || {};
-  if (e.maxHpBonus) P.maxHp += e.maxHpBonus;
-  if (e.healNow)    P.hp = Math.min(P.maxHp, P.hp + e.healNow);
-  if (e.wordSpeedMult) P.wordSpeedMult = (P.wordSpeedMult || 1) * e.wordSpeedMult;
-  if (e.dmgMult)    P.dmgMult += e.dmgMult;
-  if (e.regenPerRoom) P.regenPerRoom = (P.regenPerRoom || 0) + e.regenPerRoom;
-  if (e.berserk)    P.berserk = true;
-  if (e.vampiric)   P.vampiric = true;
-  if (e.longshot)   P.longshot = true;
-  if (e.deathless)  P.deathless = true;
-  if (e.chaos)      P.dmgMult *= 2;
-
+  if (e.maxHpBonus)   P.maxHp += e.maxHpBonus;
+  if (e.healNow)      P.hp = Math.min(P.maxHp, P.hp + e.healNow);
+  if (e.wordSpeedMult)P.wordSpeedMult = (P.wordSpeedMult||1) * e.wordSpeedMult;
+  if (e.dmgMult)      P.dmgMult += e.dmgMult;
+  if (e.regenPerRoom) P.regenPerRoom = (P.regenPerRoom||0) + e.regenPerRoom;
+  if (e.berserk)      P.berserk = true;
+  if (e.vampiric)     P.vampiric = true;
+  if (e.longshot)     P.longshot = true;
+  if (e.deathless)    P.deathless = true;
+  if (e.chaos)        P.dmgMult *= 2;
   if (upg.type === 'spell' && upg.spell) {
     if (!P.spells) { P.spells = []; P.spellCDs = []; }
     if (!P.spells.includes(upg.spell)) { P.spells.push(upg.spell); P.spellCDs.push(0); }
   }
 }
 
-// ── RUN INIT ───────────────────────────────────────────────────────────────────
+// ── Run init ───────────────────────────────────────────────────────────────────
 function startRun(classId) {
   const cls = RD.classes[classId];
   P = {
-    classId,
-    hp:   cls.hp + (cls.id === 'warrior' ? 15 : 0),
-    maxHp: cls.hp + (cls.id === 'warrior' ? 15 : 0),
-    dmgMult: cls.dmgMult,
-    wordSpeedMult: cls.wordSpeedMult,
-    gold: 0, floor: 1,
-    spells: [], spellCDs: [], upgrades: [],
+    classId, hp:cls.hp + (classId==='warrior'?15:0), maxHp:cls.hp + (classId==='warrior'?15:0),
+    dmgMult:cls.dmgMult, wordSpeedMult:cls.wordSpeedMult,
+    gold:0, floor:1, spells:[], spellCDs:[], upgrades:[],
     berserk:false, vampiric:false, longshot:false, deathless:false,
-    shield: 0, regenPerRoom: 0,
-    spellAmp: cls.id === 'mage',
+    shield:0, regenPerRoom:0, spellAmp:classId==='mage',
   };
   if (cls.startSpell) { P.spells.push(cls.startSpell); P.spellCDs.push(0); }
   buildMap(); RA.setTheme('dungeon'); G.screen = 'map';
@@ -989,7 +472,6 @@ function enterNode(nodeIdx) {
   const node = mapNodes[nodeIdx];
   mapCurIdx = nodeIdx;
   if (P.regenPerRoom && node.type !== 'rest') P.hp = Math.min(P.maxHp, P.hp + P.regenPerRoom);
-
   if (node.type === 'combat' || node.type === 'elite' || node.type === 'boss') {
     G.combatNodeIdx = nodeIdx;
     RA.setTheme(node.type === 'boss' ? 'boss' : 'combat');
@@ -1005,307 +487,413 @@ function setupShop(nodeIdx) {
   const available = RD.upgrades.filter(u => !P.upgrades.includes(u.id));
   const pool = [...available].sort(() => Math.random() - 0.5).slice(0, 3);
   G.shopItems = pool.map(u => {
-    const cost = u.rarity === 'epic' ? 80 : u.rarity === 'rare' ? 55 : u.rarity === 'uncommon' ? 35 : 20;
-    return { upgrade: u, cost, owned: false };
+    const cost = u.rarity==='epic'?80 : u.rarity==='rare'?55 : u.rarity==='uncommon'?35 : 20;
+    return { upgrade:u, cost, owned:false };
   });
   G.shopIdx = 0; G.shopNodeIdx = nodeIdx;
 }
 
-// ── SCREENS ────────────────────────────────────────────────────────────────────
-function drawTitle() {
-  cx.fillStyle = C.bg;
-  cx.fillRect(0, 0, W, H);
-  titleTick++;
-
-  // Torches (text only)
-  const flicker = Math.sin(titleTick * 0.07) > 0;
-  cx.font = "bold 13px 'Space Mono',monospace";
-  cx.textAlign = 'center';
-  cx.fillStyle = flicker ? '#664422' : '#443311';
-  cx.fillText(flicker ? '^' : '*', 90, 210);
-  cx.fillText(flicker ? '^' : '*', 710, 210);
-  cx.fillStyle = '#332211';
-  cx.fillText('|', 90, 222); cx.fillText('|', 710, 222);
-  cx.textAlign = 'left';
-
-  text('TYPEROGUE', W/2, 195, C.hi, "bold 62px 'Space Mono','Courier New',monospace", 'center');
-
-  text('─'.repeat(40), W/2, 210, C.dim, FONT_SM, 'center');
-  text('A TYPING ROGUELIKE', W/2, 236, C.dim, FONT_SM, 'center');
-
-  const blink = Math.floor(titleTick / 35) % 2 === 0;
-  if (blink) text('PRESS ENTER TO BEGIN', W/2, 293, C.white, FONT, 'center');
-
-  text('type to destroy enemies  —  survive all 3 floors', W/2, 355, C.txt, FONT_SM, 'center');
-  text('<- -> class  ·  1-3 spells  ·  ESC pause', W/2, 373, C.dim, FONT_SM, 'center');
-
-  text('by joe accardi', W/2, H - 30, C.dim, FONT_SM, 'center');
-  const crtStr = '[C] CRT: ' + (crtEnabled ? 'ON ' : 'OFF');
-  text(crtStr, W/2, H - 16, crtEnabled ? C.txt : C.dim, FONT_SM, 'center');
+// ── Input ──────────────────────────────────────────────────────────────────────
+function processKey(key) {
+  if (G.screen === 'title') {
+    if (key === 'Enter') { G.screen = 'class_select'; RA.startMusic('dungeon'); }
+    return;
+  }
+  if (G.screen === 'class_select') {
+    if (key === 'ArrowLeft')  classSelectIdx = (classSelectIdx + 2) % 3;
+    if (key === 'ArrowRight') classSelectIdx = (classSelectIdx + 1) % 3;
+    if (key === 'Enter')      startRun(CLASS_IDS[classSelectIdx]);
+    return;
+  }
+  if (G.screen === 'map') {
+    if (key === 'ArrowLeft')  mapNavigate(-1);
+    if (key === 'ArrowRight') mapNavigate(1);
+    if (key === 'Enter') {
+      const node = mapNodes[mapSelIdx];
+      if (node && node.reachable && !node.cleared) enterNode(mapSelIdx);
+    }
+    return;
+  }
+  if (G.screen === 'combat') {
+    if (key === 'Escape') { paused = !paused; return; }
+    if (paused) { if (key === 'm' || key === 'M') RA.toggleMute(); return; }
+    if (P.spells && P.spells.length > 0) {
+      const si = parseInt(key) - 1;
+      if (si >= 0 && si < P.spells.length) { activateSpell(si); return; }
+    }
+    if (key === 'Backspace') { typed = typed.slice(0, -1); updateActiveWord(); return; }
+    if (key.length !== 1) return;
+    const nextTyped = typed + key;
+    if (P.spells) {
+      const si = P.spells.findIndex(s => s === nextTyped);
+      if (si >= 0) { activateSpell(si); typed = ''; activeWordIdx = -1; return; }
+    }
+    const match = words.find(w => w.text.startsWith(nextTyped));
+    if (match) {
+      typed = nextTyped; RA.playKeyCorrect(); updateActiveWord();
+      if (match.text === typed) destroyWord(words.indexOf(match));
+    } else {
+      RA.playKeyWrong();
+      typed = '';
+      const single = words.find(w => w.text.startsWith(key));
+      if (single) { typed = key; updateActiveWord(); if (single.text === typed) destroyWord(words.indexOf(single)); }
+      else { activeWordIdx = -1; }
+    }
+    return;
+  }
+  if (G.screen === 'upgrade' || G.screen === 'combat_result') {
+    if (!upgradeChosen && G.screen === 'upgrade') {
+      const idx = parseInt(key) - 1;
+      if (idx >= 0 && idx < upgradeOptions.length) {
+        applyUpgrade(upgradeOptions[idx]); upgradeChosen = true; RA.playUpgradePick();
+        setTimeout(() => { RA.setTheme('dungeon'); G.screen = 'map'; }, 700);
+      }
+    } else if (G.screen === 'combat_result' && key === 'Enter') {
+      buildMap(); RA.setTheme('dungeon'); G.screen = 'map';
+    }
+    return;
+  }
+  if (G.screen === 'shop') {
+    if (key === 'Escape') { G.screen = 'map'; return; }
+    if (key === 'ArrowUp')   G.shopIdx = Math.max(0, (G.shopIdx||0) - 1);
+    if (key === 'ArrowDown') G.shopIdx = Math.min((G.shopItems||[]).length-1, (G.shopIdx||0) + 1);
+    if (key === 'Enter') {
+      const item = (G.shopItems||[])[(G.shopIdx||0)];
+      if (item && P.gold >= item.cost && !item.owned) {
+        P.gold -= item.cost; applyUpgrade(item.upgrade); item.owned = true; RA.playUpgradePick();
+      }
+    }
+    return;
+  }
+  if (G.screen === 'rest') {
+    if (key === 'Enter') {
+      P.hp = Math.min(P.maxHp, P.hp + Math.floor(P.maxHp * 0.35));
+      mapNodes[G.restNodeIdx].cleared = true;
+      (G.mapAdj[G.restNodeIdx]||[]).forEach(i => { mapNodes[i].reachable = true; });
+      mapSelIdx = (G.mapAdj[G.restNodeIdx]||[])[0] || 0;
+      G.screen = 'map';
+    }
+    return;
+  }
+  if (G.screen === 'gameover' || G.screen === 'victory') {
+    if (key === 'Enter') G.screen = 'title';
+    return;
+  }
 }
 
-function drawClassSelectScreen() {
-  cx.fillStyle = C.bg;
-  cx.fillRect(0, 0, W, H);
+// ── Render ─────────────────────────────────────────────────────────────────────
+function clear() { wordLayer.innerHTML = ''; floatLayer.innerHTML = ''; }
 
-  text('CHOOSE YOUR CLASS', W/2, 50, C.hi, FONT_LG, 'center');
-  text('─'.repeat(50), W/2, 62, C.dim, FONT_SM, 'center');
+function renderTitle() {
+  const blink = Math.floor(titleTick / 35) % 2 === 0;
+  titleTick++;
+  screen.innerHTML = [
+    '', '', '', '', '',
+    wh('                          TYPEROGUE'),
+    '',
+    dim('               a typing roguelike'),
+    '', '',
+    blink ? wh('              PRESS ENTER TO BEGIN') : '',
+    '', '',
+    dim('   type words to destroy enemies  —  survive all 3 floors'),
+    dim('   <- -> class  ·  1-3 spells  ·  ESC pause'),
+    '', '', '', '', '', '', '',
+    dim('                              by joe accardi'),
+  ].join('\n');
+  clear();
+}
 
-  const colW = W / 3;
-  CLASS_IDS.forEach((cid, i) => {
-    const cls = RD.classes[cid];
-    const cx_ = colW * i + colW / 2;
-    const selected = i === classSelectIdx;
+function renderClassSelect() {
+  const passiveText = { warrior:'iron skin', rogue:'quick draw', mage:'spell amp' };
+  const cls = RD.classes[CLASS_IDS[classSelectIdx]];
+  const cid = CLASS_IDS[classSelectIdx];
+  const tabs = CLASS_IDS.map((id, i) =>
+    i === classSelectIdx ? wh('[ ' + RD.classes[id].name + ' ]') : dim('  ' + RD.classes[id].name + '  ')
+  ).join('     ');
 
-    const nameCol = selected ? C.white : C.txt;
-    if (selected) {
-      text('[', cx_ - 60, 95, C.dim, "bold 20px 'Space Mono',monospace", 'center');
-      text(']', cx_ + 60, 95, C.dim, "bold 20px 'Space Mono',monospace", 'center');
+  screen.innerHTML = [
+    '',
+    wh('   CHOOSE YOUR CLASS'),
+    dim('   ' + '─'.repeat(40)),
+    '',
+    '   ' + tabs,
+    '',
+    dim('   ' + '─'.repeat(40)),
+    '',
+    sp('   hp:      ' + (cls.hp + (cid==='warrior'?15:0)), C.txt),
+    sp('   dmg:     ' + cls.dmgMult + 'x', C.txt),
+    sp('   words:   ' + (cid==='rogue' ? '1.35x faster' : 'normal'), C.txt),
+    sp('   passive: ' + (passiveText[cid]||''), C.txt),
+    sp('   spell:   ' + (cls.startSpell || 'none'), C.txt),
+    '',
+    dim('   ' + cls.desc),
+    '', '', '',
+    dim('   <- -> select    ENTER confirm'),
+  ].join('\n');
+  clear();
+}
+
+function renderMap() {
+  const COLS = 78, ROWS = 16;
+  const grid   = Array.from({length:ROWS}, () => new Array(COLS).fill(' '));
+  const colors = Array.from({length:ROWS}, () => new Array(COLS).fill(''));
+
+  function put(r, c, text, color) {
+    for (let i = 0; i < text.length && c+i < COLS && r < ROWS; i++) {
+      grid[r][c+i] = text[i]; colors[r][c+i] = color || '';
+    }
+  }
+
+  const colChar = [8, 37, 66];
+  const rowChar = [0, 3, 6, 9, 12];
+  function np(node) { return { r:rowChar[node.row], c:colChar[node.col] }; }
+
+  // Corridors
+  Object.entries(G.mapAdj || {}).forEach(([from, tos]) => {
+    const fp = np(mapNodes[+from]);
+    tos.forEach(toIdx => {
+      const tp = np(mapNodes[toIdx]);
+      const dr = tp.r - fp.r, dc = tp.c - fp.c;
+      const ch = dc === 0 ? '|' : dc > 0 ? '\\' : '/';
+      for (let s = 1; s < Math.abs(dr); s++) {
+        const r = fp.r + s, c = Math.round(fp.c + dc * s / Math.abs(dr));
+        if (r >= 0 && r < ROWS && c >= 0 && c < COLS) { grid[r][c] = ch; colors[r][c] = C.dim; }
+      }
+    });
+  });
+
+  // Nodes
+  mapNodes.forEach((node, i) => {
+    const meta = ROOM_TYPE_META[node.type] || ROOM_TYPE_META.combat;
+    const p = np(node);
+    const isSelected  = i === mapSelIdx;
+    const isCleared   = node.cleared;
+    const isReachable = node.reachable && !node.cleared;
+    const iconCol  = isCleared ? C.dim : isSelected ? C.white : isReachable ? meta.color : '#222';
+    const labelCol = isCleared ? C.dim : isSelected ? C.white : isReachable ? C.txt      : '#222';
+    const icon = isSelected ? '[' + meta.icon + ']' : ' ' + meta.icon + ' ';
+    put(p.r, p.c - 1, icon, iconCol);
+    const lbl = meta.label.toUpperCase();
+    put(p.r + 1, p.c - Math.floor(lbl.length / 2), lbl, labelCol);
+  });
+
+  // Render grid
+  const htmlLines = grid.map((row, r) => {
+    let line = '', curCol = '', run = '';
+    const flush = () => {
+      if (!run) return;
+      const e = run.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      line += curCol ? `<span style="color:${curCol}">${e}</span>` : e;
+      run = '';
+    };
+    row.forEach((ch, c) => {
+      const col = colors[r][c];
+      if (col !== curCol) { flush(); curCol = col; }
+      run += ch;
+    });
+    flush();
+    return line;
+  });
+
+  const hpStr = sp('HP ' + P.hp + '/' + P.maxHp, P.hp < P.maxHp*0.3 ? C.red : C.txt);
+  screen.innerHTML =
+    wh('FLOOR ' + (P.floor||1)) + '                            ' + dim('DUNGEON MAP') + '             ' + hpStr + '\n' +
+    dim('─'.repeat(78)) + '\n' +
+    htmlLines.join('\n') + '\n' +
+    dim('─'.repeat(78)) + '\n' +
+    dim('<- -> navigate    ENTER enter room') +
+    (P.spells && P.spells.length ? '    ' + dim('spells: ' + P.spells.join(' ')) : '');
+  clear();
+}
+
+function renderCombat() {
+  const etype = enemy.type === 'boss' ? ' [BOSS]' : enemy.type === 'elite' ? ' [ELITE]' : '';
+  const frozen = freezeTimer > 0;
+  const cursor = Math.floor(combatTick / 400) % 2 === 0 ? '_' : ' ';
+
+  const spellStr = P.spells && P.spells.length > 0
+    ? '\n' + P.spells.map((s, i) => {
+        const cd = P.spellCDs[i] || 0;
+        return sp('[' + (i+1) + ']' + s + (cd > 0 ? ' '+(cd/1000).toFixed(1)+'s' : ''), cd > 0 ? C.dim : C.txt);
+      }).join('   ')
+    : '';
+
+  const shieldStr = P.shield > 0 ? '  ' + sp('[shld:' + P.shield + ']', C.blue) : '';
+
+  let html =
+    sp(enemy.name.toUpperCase() + etype, enemy.color || C.red) +
+    (enemy.currentPhase > 0 ? '  ' + sp('PHASE '+(enemy.currentPhase+1), '#993366') : '') +
+    '                    ' + dim('FLOOR ' + P.floor) + '\n' +
+    bar(enemy.hp, RD.enemies[enemy.id].hp) +
+    (frozen ? '\n' + sp('* frozen *', C.blue) : '') +
+    '\n'.repeat(15) +
+    dim('─'.repeat(78)) + '\n' +
+    bar(P.hp, P.maxHp, P.classId.toUpperCase()) + shieldStr +
+    '      ' + sp('¢' + P.gold, C.gold) +
+    spellStr + '\n' +
+    sp('> ', C.dim) + wh(esc(typed) + cursor);
+
+  if (flashTimer > 0) html += '\n\n' + sp(flashMsg, flashColor);
+  if (paused) html += '\n\n' + wh('[ PAUSED ]') + '    ' + dim('ESC resume  M mute');
+
+  screen.innerHTML = html;
+
+  // Words
+  let wHtml = '';
+  words.forEach((w, i) => {
+    if (w.invisible && w.invisBlinkTimer > 0 && Math.floor(w.invisBlinkTimer / 200) % 2 === 0) return;
+    const isActive = i === activeWordIdx;
+    const txt = w.text;
+    const tLen = isActive ? typed.length : 0;
+    let inner = '';
+
+    if (w.isPickup) {
+      const eff = w.pickupEffect;
+      const blink = Math.floor(Date.now() / 400) % 2 === 0;
+      inner = tLen > 0
+        ? sp(txt.slice(0,tLen), C.white) + sp(txt.slice(tLen), C.dim)
+        : sp(txt, isActive ? C.white : (blink ? eff.color : C.dim));
+      inner += '<br>' + sp(eff.label, eff.color);
+    } else if (tLen > 0) {
+      inner = sp(txt.slice(0,tLen), C.white) + sp(txt.slice(tLen), w.isAttack ? C.red : C.dim);
+    } else {
+      inner = sp(txt, w.isAttack ? C.red : isActive ? C.hi : C.txt);
     }
 
-    // ASCII player sprite
-    const sprite = ASCII_PLAYER[cid] || [' [@] ', '  @  ', '  Y  '];
-    cx.font = "bold 14px 'Space Mono',monospace";
-    cx.textAlign = 'center';
-    sprite.forEach((line, li) => {
-      cx.fillStyle = li === 1 ? cls.color : C.dim;
-      cx.fillText(line, cx_, 90 + li * 16);
-    });
-
-    text(cls.name, cx_, 148, nameCol, "bold 15px 'Space Mono',monospace", 'center');
-    text('─'.repeat(22), cx_, 160, C.dim, FONT_SM, 'center');
-    text(`hp:${cls.hp + (cid==='warrior'?15:0)} dmg:${cls.dmgMult}x`, cx_, 176, C.dim, FONT_SM, 'center');
-    text(cid === 'rogue' ? 'words: 1.35x' : 'words: normal', cx_, 190, C.dim, FONT_SM, 'center');
-
-    text('passive', cx_, 216, C.dim, "bold 9px 'Space Mono',monospace", 'center');
-    const passiveText = { warrior:'iron skin', rogue:'quick draw', mage:'spell amp' };
-    text(passiveText[cid] || '', cx_, 230, cls.color, FONT_SM, 'center');
-
-    text('start spell', cx_, 254, C.dim, "bold 9px 'Space Mono',monospace", 'center');
-    text(cls.startSpell ? cls.startSpell.toUpperCase() : 'none', cx_, 268, cls.startSpell ? C.txt : C.dim, FONT_SM, 'center');
-
-    cx.font = "9px 'Space Mono',monospace";
-    cx.fillStyle = C.dim;
-    wrapText(cls.desc, cx_ - 88, 292, 176, 13, 'center');
-
-    cx.textAlign = 'left';
+    wHtml += `<span class="w" style="left:${w.x}px;top:${w.y}px">${inner}</span>`;
   });
+  wordLayer.innerHTML = wHtml;
 
-  text('<- -> select    ENTER confirm', W/2, H - 16, C.dim, FONT_SM, 'center');
+  // Floats
+  let fHtml = '';
+  floats.forEach(f => {
+    fHtml += `<span class="fl" style="left:${f.x}px;top:${f.y}px;opacity:${f.life.toFixed(2)};color:${f.color}">${esc(f.str)}</span>`;
+  });
+  floatLayer.innerHTML = fHtml;
 }
 
-function drawCombatScreen() {
-  cx.fillStyle = C.bg;
-  cx.fillRect(0, 0, W, H);
-
-  drawDungeonRoom();
-  drawTorch(FLOOR_X1 + 18, FLOOR_Y1 + 14);
-  drawTorch(FLOOR_X2 - 18, FLOOR_Y1 + 14);
-
-  // Enemy header (top)
-  const eData = RD.enemies[enemy.id] || enemy;
-  const etype = eData.type === 'boss' ? ' [BOSS]' : eData.type === 'elite' ? ' [ELITE]' : '';
-  text(enemy.name.toUpperCase() + etype, 20, 18, enemy.color || C.red, "bold 13px 'Space Mono',monospace");
-  asciiBar(20, 36, enemy.hp, RD.enemies[enemy.id].hp);
-  text('FLOOR ' + P.floor, W - 20, 18, C.dim, FONT_SM, 'right');
-  if (enemy.currentPhase > 0) {
-    text('PHASE ' + (enemy.currentPhase + 1), W - 20, 36, '#993366', FONT_SM, 'right');
-  }
-
-  // Sprites
-  drawEnemy(enemy, ENEMY_CX, ENEMY_CY, enemy.hp, RD.enemies[enemy.id].hp, enemy.currentPhase);
-  drawPlayer(P.classId, PLAYER_CX, PLAYER_CY);
-
-  // Words + floats
-  drawWords();
-  drawFloats();
-
-  if (freezeTimer > 0) {
-    text('* frozen *', W/2, FLOOR_Y1 + 14, C.blue, FONT_SM, 'center');
-  }
-
-  // HUD (text only)
-  const hudY = RM.y + RM.h + 10;
-  text('─'.repeat(97), W/2, hudY - 4, C.dim, FONT_SM, 'center');
-  asciiBar(20, hudY + 8, P.hp, P.maxHp, null, P.classId.toUpperCase());
-  if (P.shield > 0) text('  [shld:' + P.shield + ']', 20 + cx.measureText('[================] 135/135 WARRIOR').width, hudY + 8, C.blue, FONT_SM);
-  text('¢' + P.gold, W - 20, hudY + 8, C.gold, FONT_SM, 'right');
-
-  if (P.spells && P.spells.length > 0) {
-    const spellStr = P.spells.map((s, i) => {
-      const cd = P.spellCDs[i] || 0;
-      return `[${i+1}]${s}${cd > 0 ? ' ' + (cd/1000).toFixed(1) + 's' : ''}`;
-    }).join('   ');
-    text(spellStr, 20, hudY + 24, C.txt, FONT_SM);
-  }
-
-  text('> ' + typed + (Math.floor(combatTick / 400) % 2 === 0 ? '_' : ' '), 20, H - 8, C.white, FONT);
-
-  // Pause
-  if (paused) {
-    cx.fillStyle = 'rgba(0,0,0,0.88)';
-    cx.fillRect(0, 0, W, H);
-    text('[ PAUSED ]', W/2, H/2 - 8, C.white, FONT_XL, 'center');
-    text('ESC resume  M mute  C CRT', W/2, H/2 + 26, C.dim, FONT_SM, 'center');
-  }
-
-  // Flash message
-  if (flashTimer > 0) {
-    cx.globalAlpha = clamp(flashTimer / 600, 0, 1);
-    text(flashMsg, W/2, H/2 - 60, flashColor, FONT_LG, 'center');
-    cx.globalAlpha = 1;
-  }
-}
-
-function drawUpgradeScreen() {
-  cx.fillStyle = C.bg;
-  cx.fillRect(0, 0, W, H);
-
-  text('ROOM CLEARED!', W/2, 46, C.hi, FONT_LG, 'center');
-  text('choose an upgrade', W/2, 68, C.dim, FONT_SM, 'center');
-  text('─'.repeat(97), W/2, 80, C.dim, FONT_SM, 'center');
-
-  const colW = W / 3;
+function renderUpgrade() {
+  const lines = ['', wh('   ROOM CLEARED!'), dim('   choose an upgrade'), dim('   ' + '─'.repeat(40)), ''];
   upgradeOptions.forEach((u, i) => {
-    const cx_ = colW * i + colW / 2;
     const rarCol = RD.rarityColor[u.rarity] || C.txt;
     const typeIcon = { passive:'=', spell:'*', deck:'~' }[u.type] || '?';
-
-    text('[' + (i+1) + ']', cx_, 108, rarCol, "bold 18px 'Space Mono',monospace", 'center');
-    text(typeIcon, cx_, 134, C.dim, "bold 18px 'Space Mono',monospace", 'center');
-    text(u.name, cx_, 160, C.white, "bold 13px 'Space Mono',monospace", 'center');
-    text(u.rarity + ' ' + u.type, cx_, 176, rarCol, FONT_SM, 'center');
-    text('─'.repeat(22), cx_, 188, C.dim, FONT_SM, 'center');
-
-    cx.font = FONT_SM;
-    cx.fillStyle = C.txt;
-    wrapText(u.desc, cx_ - 92, 204, 184, 16, 'center');
+    lines.push(sp('[' + (i+1) + '] ' + typeIcon + ' ' + u.name, rarCol));
+    lines.push(dim('    ' + u.rarity + ' ' + u.type));
+    lines.push(sp('    ' + u.desc, C.txt));
+    lines.push('');
   });
-
-  if (!upgradeChosen) {
-    text('1    2    3', W/2, H - 16, C.dim, FONT_SM, 'center');
-  } else {
-    text('...', W/2, H - 16, C.gold, FONT_SM, 'center');
-  }
+  lines.push(!upgradeChosen ? dim('   1  2  3') : sp('   ...', C.gold));
+  screen.innerHTML = lines.join('\n');
+  clear();
 }
 
-function drawCombatResultScreen() {
-  cx.fillStyle = C.bg;
-  cx.fillRect(0, 0, W, H);
-
-  text('BOSS DEFEATED!', W/2, 150, C.hi, "bold 38px 'Space Mono',monospace", 'center');
-  text('floor ' + ((P.floor||1) - 1) + ' cleared', W/2, 196, C.dim, FONT, 'center');
-  text('─'.repeat(40), W/2, 214, C.dim, FONT_SM, 'center');
-
-  text('hp: ' + P.hp + ' / ' + P.maxHp, W/2, 252, P.hp < P.maxHp*0.3 ? C.red : C.txt, FONT, 'center');
-  text('gold: ¢' + P.gold, W/2, 280, C.gold, FONT, 'center');
-  if (P.upgrades && P.upgrades.length) text('upgrades: ' + P.upgrades.length, W/2, 308, C.dim, FONT, 'center');
-
+function renderCombatResult() {
   const blink = Math.floor(Date.now() / 500) % 2 === 0;
-  if (blink) text('ENTER -> next floor', W/2, 382, C.txt, FONT, 'center');
+  screen.innerHTML = [
+    '', '', '', '',
+    wh('   BOSS DEFEATED!'),
+    dim('   floor ' + ((P.floor||1)-1) + ' cleared'),
+    dim('   ' + '─'.repeat(24)),
+    '',
+    sp('   hp:       ' + P.hp + ' / ' + P.maxHp, P.hp < P.maxHp*0.3 ? C.red : C.txt),
+    sp('   gold:     ¢' + P.gold, C.gold),
+    P.upgrades && P.upgrades.length ? dim('   upgrades: ' + P.upgrades.length) : '',
+    '', '',
+    blink ? dim('   ENTER -> next floor') : '',
+  ].join('\n');
+  clear();
 }
 
-function drawShopScreen() {
-  cx.fillStyle = C.bg;
-  cx.fillRect(0, 0, W, H);
-
-  text('SHOP', W/2, 46, C.hi, "bold 28px 'Space Mono',monospace", 'center');
-  text('¢' + P.gold, W/2, 70, C.gold, FONT, 'center');
-  text('─'.repeat(60), W/2, 82, C.dim, FONT_SM, 'center');
-
-  const items = G.shopItems || [];
-  items.forEach((item, i) => {
+function renderShop() {
+  const lines = ['', wh('   SHOP'), sp('   ¢' + P.gold, C.gold), dim('   ' + '─'.repeat(40)), ''];
+  (G.shopItems || []).forEach((item, i) => {
     const u = item.upgrade;
-    const selected = i === (G.shopIdx || 0);
+    const sel = i === (G.shopIdx||0);
     const canBuy = P.gold >= item.cost && !item.owned;
-    const rowY = 112 + i * 60;
     const rarCol = RD.rarityColor[u.rarity] || C.txt;
-
-    const prefix = selected ? '> ' : '  ';
-    text(prefix + u.name, 80, rowY, item.owned ? C.dim : C.white, "bold 13px 'Space Mono',monospace");
-    text(u.rarity + ' · ' + u.type, 80, rowY + 16, item.owned ? C.dim : rarCol, FONT_SM);
-    text(u.desc, 80, rowY + 30, item.owned ? C.dim : C.txt, "9px 'Space Mono',monospace");
-    const costStr = item.owned ? 'OWNED' : ('¢' + item.cost);
-    text(costStr, W - 80, rowY + 8, item.owned ? C.dim : (canBuy ? C.gold : C.red), FONT, 'right');
+    const prefix = sel ? '> ' : '  ';
+    const costStr = item.owned ? dim('OWNED') : sp('¢' + item.cost, canBuy ? C.gold : C.red);
+    lines.push(sp(prefix + u.name, item.owned ? C.dim : C.white) + '    ' + costStr);
+    lines.push(dim('  ' + u.rarity + ' · ' + u.type));
+    lines.push(sp('  ' + u.desc, C.dim));
+    lines.push('');
   });
-
-  text('─'.repeat(60), W/2, 308, C.dim, FONT_SM, 'center');
-  text('^ v navigate  ENTER buy  ESC leave', W/2, H - 16, C.dim, FONT_SM, 'center');
+  lines.push(dim('   ^ v navigate  ENTER buy  ESC leave'));
+  screen.innerHTML = lines.join('\n');
+  clear();
 }
 
-function drawRestScreen() {
-  cx.fillStyle = C.bg;
-  cx.fillRect(0, 0, W, H);
-
-  text('+ REST SITE +', W/2, 164, C.txt, "bold 28px 'Space Mono',monospace", 'center');
-  text('a moment of respite in the dungeon', W/2, 204, C.dim, FONT_SM, 'center');
-  text('─'.repeat(44), W/2, 220, C.dim, FONT_SM, 'center');
-
-  const healAmt = Math.floor(P.maxHp * 0.35);
-  text(`heal ${healAmt} hp  (${P.hp} -> ${Math.min(P.maxHp, P.hp + healAmt)})`, W/2, 270, C.txt, FONT, 'center');
-  text(`max hp: ${P.maxHp}`, W/2, 300, C.dim, FONT, 'center');
-
+function renderRest() {
   const blink = Math.floor(Date.now() / 500) % 2 === 0;
-  if (blink) text('PRESS ENTER TO REST', W/2, 372, C.txt, FONT, 'center');
+  const heal = Math.floor(P.maxHp * 0.35);
+  screen.innerHTML = [
+    '', '', '', '',
+    sp('   + REST SITE +', C.cyan),
+    dim('   a moment of respite in the dungeon'),
+    dim('   ' + '─'.repeat(30)),
+    '',
+    sp('   heal ' + heal + ' hp  (' + P.hp + ' -> ' + Math.min(P.maxHp, P.hp+heal) + ')', C.txt),
+    dim('   max hp: ' + P.maxHp),
+    '', '',
+    blink ? dim('   PRESS ENTER TO REST') : '',
+  ].join('\n');
+  clear();
 }
 
-function drawGameOverScreen() {
-  cx.fillStyle = C.bg;
-  cx.fillRect(0, 0, W, H);
-
-  text('DEFEATED', W/2, 170, C.red, "bold 50px 'Space Mono',monospace", 'center');
-  text('─'.repeat(28), W/2, 188, C.dim, FONT_SM, 'center');
-
-  text('slain by ' + (enemy ? enemy.name : 'the dungeon'), W/2, 230, C.txt, FONT, 'center');
-  text('floor ' + (P.floor || 1), W/2, 258, C.dim, FONT, 'center');
-  text('gold: ¢' + (P.gold || 0), W/2, 286, C.gold, FONT, 'center');
-  if (P.upgrades && P.upgrades.length) text('upgrades: ' + P.upgrades.length, W/2, 314, C.dim, FONT, 'center');
-
+function renderGameOver() {
   const blink = Math.floor(Date.now() / 500) % 2 === 0;
-  if (blink) text('PRESS ENTER TO RETURN', W/2, 392, C.dim, FONT, 'center');
+  screen.innerHTML = [
+    '', '', '',
+    sp('   DEFEATED', C.red),
+    dim('   ' + '─'.repeat(18)),
+    '',
+    dim('   slain by ' + (enemy ? enemy.name : 'the dungeon')),
+    dim('   floor ' + (P.floor||1)),
+    sp('   gold: ¢' + (P.gold||0), C.gold),
+    P.upgrades && P.upgrades.length ? dim('   upgrades: ' + P.upgrades.length) : '',
+    '', '',
+    blink ? dim('   PRESS ENTER TO RETURN') : '',
+  ].join('\n');
+  clear();
 }
 
-function drawVictoryScreen() {
-  cx.fillStyle = C.bg;
-  cx.fillRect(0, 0, W, H);
-
-  text('TYRANT PRIME', W/2, 130, C.hi, "bold 40px 'Space Mono',monospace", 'center');
-  text('DEFEATED!', W/2, 182, C.txt, "bold 36px 'Space Mono',monospace", 'center');
-  text('─'.repeat(32), W/2, 198, C.dim, FONT_SM, 'center');
-
-  text('the dungeon has been conquered', W/2, 242, C.dim, FONT_SM, 'center');
-  text('class: ' + (P.classId || '').toUpperCase(), W/2, 284, C.txt, FONT, 'center');
-  text('hp: ' + P.hp + '/' + P.maxHp, W/2, 312, P.hp < P.maxHp*0.3 ? C.red : C.txt, FONT, 'center');
-  text('gold: ¢' + P.gold, W/2, 340, C.gold, FONT, 'center');
-  text('upgrades: ' + (P.upgrades || []).length, W/2, 368, C.dim, FONT, 'center');
-
+function renderVictory() {
   const blink = Math.floor(Date.now() / 500) % 2 === 0;
-  if (blink) text('PRESS ENTER TO PLAY AGAIN', W/2, 434, C.txt, FONT, 'center');
+  screen.innerHTML = [
+    '', '',
+    wh('   TYRANT PRIME'),
+    wh('   DEFEATED!'),
+    dim('   ' + '─'.repeat(22)),
+    '',
+    dim('   the dungeon has been conquered'),
+    '',
+    dim('   class:    ' + (P.classId||'').toUpperCase()),
+    sp('   hp:       ' + P.hp + '/' + P.maxHp, P.hp < P.maxHp*0.3 ? C.red : C.txt),
+    sp('   gold:     ¢' + P.gold, C.gold),
+    dim('   upgrades: ' + (P.upgrades||[]).length),
+    '', '',
+    blink ? wh('   PRESS ENTER TO PLAY AGAIN') : '',
+  ].join('\n');
+  clear();
 }
 
-// ── MAIN LOOP ──────────────────────────────────────────────────────────────────
+// ── Main loop ──────────────────────────────────────────────────────────────────
 let lastT = 0;
-
 function loop(t) {
   const dt = Math.min(t - lastT, 50);
   lastT = t;
-
-  cx.clearRect(0, 0, W, H);
-
   switch (G.screen) {
-    case 'title':         drawTitle();             break;
-    case 'class_select':  drawClassSelectScreen();  break;
-    case 'map':           drawMapScreen();           break;
-    case 'combat':        updateCombat(dt); drawCombatScreen(); break;
-    case 'upgrade':       drawUpgradeScreen();       break;
-    case 'combat_result': drawCombatResultScreen();  break;
-    case 'shop':          drawShopScreen();          break;
-    case 'rest':          drawRestScreen();          break;
-    case 'gameover':      drawGameOverScreen();      break;
-    case 'victory':       drawVictoryScreen();       break;
+    case 'title':         renderTitle();         break;
+    case 'class_select':  renderClassSelect();    break;
+    case 'map':           renderMap();            break;
+    case 'combat':        updateCombat(dt); renderCombat(); break;
+    case 'upgrade':       renderUpgrade();        break;
+    case 'combat_result': renderCombatResult();   break;
+    case 'shop':          renderShop();           break;
+    case 'rest':          renderRest();           break;
+    case 'gameover':      renderGameOver();       break;
+    case 'victory':       renderVictory();        break;
   }
-
-  drawCRTOverlay();
   requestAnimationFrame(loop);
 }
 
