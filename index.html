@@ -536,6 +536,11 @@ function processKey(key) {
   if (G.screen === 'title') {
     if (key === 'Enter') { G.screen = 'class_select'; RA.startMusic('dungeon'); }
     if (key === 'l' || key === 'L') { darkMode = !darkMode; applyTheme(); }
+    if (key === 'i' || key === 'I') { G.screen = 'instructions'; }
+    return;
+  }
+  if (G.screen === 'instructions') {
+    if (key === 'Escape') { G.screen = 'title'; }
     return;
   }
   if (G.screen === 'class_select') {
@@ -642,7 +647,7 @@ function clear() {
 function renderTitle() {
   const blink = Math.floor(titleTick / 35) % 2 === 0;
   titleTick++;
-  const footer = '[L] ' + (darkMode ? 'light mode' : 'dark mode') + '  ·  by joe accardi';
+  const footer = '[I] instructions  ·  [L] ' + (darkMode ? 'light mode' : 'dark mode') + '  ·  by joe accardi';
   const instr1 = 'type words to destroy enemies  —  survive all 3 floors';
   const instr2 = '<- -> class  ·  1-3 spells  ·  ESC pause';
   const best = bestRunLine();
@@ -940,6 +945,38 @@ function renderVictory() {
   clear();
 }
 
+function renderInstructions() {
+  screen.innerHTML = [
+    '',
+    wh('   HOW TO PLAY'),
+    dim('   ' + '─'.repeat(40)),
+    '',
+    wh('   combat'),
+    dim('   type the words drifting across the screen to deal damage'),
+    dim('   longer words = more damage'),
+    dim('   red words are enemy attacks — type them to block'),
+    dim('   symbols (!@#$%) are pickups — type them for bonuses'),
+    '',
+    wh('   spells'),
+    dim('   press 1-3 to cast a spell (if you have one)'),
+    dim('   freeze  — stops all words briefly'),
+    dim('   shield  — absorbs incoming damage'),
+    dim('   nova    — damages enemy for each word on screen'),
+    dim('   haste   — speeds up your typing window'),
+    dim('   drain   — deals damage and heals you'),
+    dim('   blast   — heavy single hit'),
+    '',
+    wh('   map'),
+    dim('   <- -> navigate nodes,  ENTER to enter'),
+    dim('   combat → elite → boss per floor  (3 floors total)'),
+    dim('   shop: spend gold on upgrades'),
+    dim('   rest: restore 35% hp'),
+    '',
+    dim('   ESC  pause / back'),
+  ].join('\n');
+  clear();
+}
+
 // ── Main loop ──────────────────────────────────────────────────────────────────
 let lastT = 0;
 function loop(t) {
@@ -947,6 +984,7 @@ function loop(t) {
   lastT = t;
   switch (G.screen) {
     case 'title':         renderTitle();         break;
+    case 'instructions':  renderInstructions();  break;
     case 'class_select':  renderClassSelect();    break;
     case 'map':           renderMap();            break;
     case 'combat':        updateCombat(dt); renderCombat(); break;
