@@ -97,6 +97,26 @@ function bar(hp, maxHp, label) {
   return (label ? sp(label + ' ', C.dim) : '') + sp(b, col) + sp(' ' + hp + '/' + maxHp, col);
 }
 
+// ── Best run ───────────────────────────────────────────────────────────────────
+function loadBestRun() {
+  try { return JSON.parse(localStorage.getItem('typerogue_best')) || null; } catch { return null; }
+}
+function saveBestRun(outcome) {
+  const cur  = { outcome, floor:P.floor||1, kills:P.kills||0, gold:P.gold||0, classId:P.classId };
+  const prev = loadBestRun();
+  function score(r) {
+    if (!r) return -1;
+    return (r.outcome === 'victory' ? 100000 : 0) + (r.floor * 1000) + r.kills;
+  }
+  if (score(cur) >= score(prev)) localStorage.setItem('typerogue_best', JSON.stringify(cur));
+}
+function bestRunLine() {
+  const b = loadBestRun();
+  if (!b) return '';
+  const tag = b.outcome === 'victory' ? 'victory' : 'fl.' + b.floor;
+  return tag + '  ' + b.classId + '  ' + b.kills + ' kills  ¢' + b.gold;
+}
+
 // ── State ──────────────────────────────────────────────────────────────────────
 let G = { screen:'title' };
 let titleTick = 0;
@@ -288,12 +308,13 @@ function updateCombat(dt) {
     if (P.deathless && !P.deathlessUsed) {
       P.hp = 1; P.deathlessUsed = true;
       flashMsg = 'DEATHLESS!'; flashColor = '#993366'; flashTimer = 1500;
-    } else { RA.playGameOver(); RA.stopMusic(1.5); G.screen = 'gameover'; return; }
+    } else { RA.playGameOver(); RA.stopMusic(1.5); saveBestRun('defeat'); G.screen = 'gameover'; return; }
   }
 
   if (enemy.hp <= 0) {
     enemy.hp = 0; words = [];
     RA.playRoomClear();
+    P.kills = (P.kills || 0) + 1;
     P.gold = (P.gold || 0) + (enemy.loot && enemy.loot.gold || 0);
     mapNodes[G.combatNodeIdx].cleared = true;
     (G.mapAdj[G.combatNodeIdx] || []).forEach(i => { mapNodes[i].reachable = true; });
@@ -301,7 +322,7 @@ function updateCombat(dt) {
     if (P.regenPerRoom) P.hp = Math.min(P.maxHp, P.hp + P.regenPerRoom);
 
     if (enemy.type === 'boss') {
-      if (enemy.id === 'tyrant_prime') { G.screen = 'victory'; RA.playVictory(); RA.stopMusic(2); return; }
+      if (enemy.id === 'tyrant_prime') { saveBestRun('victory'); G.screen = 'victory'; RA.playVictory(); RA.stopMusic(2); return; }
       P.floor = (P.floor || 1) + 1;
       RA.setTheme('dungeon'); G.screen = 'combat_result';
     } else {
@@ -477,7 +498,7 @@ function startRun(classId) {
   P = {
     classId, hp:cls.hp + (classId==='warrior'?15:0), maxHp:cls.hp + (classId==='warrior'?15:0),
     dmgMult:cls.dmgMult, wordSpeedMult:cls.wordSpeedMult,
-    gold:30, floor:1, spells:[], spellCDs:[], upgrades:[],
+    gold:30, floor:1, kills:0, spells:[], spellCDs:[], upgrades:[],
     berserk:false, vampiric:false, longshot:false, deathless:false,
     shield:0, regenPerRoom:0, spellAmp:classId==='mage',
   };
@@ -624,6 +645,7 @@ function renderTitle() {
   const footer = '[L] ' + (darkMode ? 'dark mode' : 'light mode') + '  ·  by joe accardi';
   const instr1 = 'type words to destroy enemies  —  survive all 3 floors';
   const instr2 = '<- -> class  ·  1-3 spells  ·  ESC pause';
+  const best = bestRunLine();
   screen.innerHTML = [
     '', '', '', '', '',
     wh('TYPEROGUE'),
@@ -634,7 +656,9 @@ function renderTitle() {
     '', '',
     dim(instr1),
     dim(instr2),
-    '', '', '', '', '', '', '',
+    '',
+    best ? dim('best: ' + best) : '',
+    '', '', '', '', '', '',
     dim(footer),
   ].join('\n');
   clear();
