@@ -1055,6 +1055,7 @@ function renderCombat() {
     dim('─'.repeat(78)) + '\n' +
     bar(P.hp, P.maxHp, P.classId.toUpperCase()) + shieldStr +
     '      ' + sp('¢' + P.gold, C.gold) +
+    '      ' + dim('dmg:' + P.dmgMult.toFixed(1) + 'x') +
     spellStr + '\n' +
     sp('> ', C.dim) + wh(esc(typed) + cursor);
 
