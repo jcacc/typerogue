@@ -462,9 +462,22 @@ function spawnCombatWord(isAttack) {
   if (enemy.special === 'invisible') invisWordCount++;
   const atkWords = RD.attackWords[enemy.floor] || RD.attackWords[1];
   const txt = isAttack ? rnd(atkWords) : pickWord();
+
+  // Pick the least-crowded lane near the top, then stagger y above any existing word
+  const MIN_GAP = 48;
+  const laneOrder = [0, 1, 2].sort(() => Math.random() - 0.5);
+  let lane = laneOrder[0];
+  for (const li of laneOrder) {
+    const blocked = words.some(w => Math.abs(w.x - LANE_X[li]) < 70 && w.y < WORD_SPAWN_Y + MIN_GAP);
+    if (!blocked) { lane = li; break; }
+  }
+  const laneWords = words.filter(w => Math.abs(w.x - LANE_X[lane]) < 70);
+  const topY = laneWords.length ? Math.min(...laneWords.map(w => w.y)) : WORD_SPAWN_Y;
+  const spawnY = Math.min(WORD_SPAWN_Y, topY - MIN_GAP);
+
   words.push({
-    text:txt, x:LANE_X[Math.floor(Math.random()*3)] + (Math.random()-0.5)*50,
-    y:WORD_SPAWN_Y, speed:enemy.effectiveSpeed,
+    text:txt, x:LANE_X[lane] + (Math.random()-0.5)*50,
+    y:spawnY, speed:enemy.effectiveSpeed,
     isAttack:!!isAttack, invisible:!!isInvis, invisBlinkTimer:isInvis ? 800 : 0,
   });
   updateActiveWord();
