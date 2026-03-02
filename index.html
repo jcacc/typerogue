@@ -769,6 +769,7 @@ function processKey(key) {
     if (paused) {
       if (key === 'm' || key === 'M') RA.toggleMute();
       if (key === 'l' || key === 'L') { darkMode = !darkMode; applyTheme(); }
+      if (key === 'q' || key === 'Q') { paused = false; RA.stopMusic(1); G.screen = 'title'; }
       return;
     }
     if (P.spells && P.spells.length > 0) {
@@ -1060,7 +1061,7 @@ function renderCombat() {
     sp('> ', C.dim) + wh(esc(typed) + cursor);
 
   if (flashTimer > 0) html += '\n\n' + sp(flashMsg, flashColor);
-  if (paused) html += '\n\n' + wh('[ PAUSED ]') + '    ' + dim('ESC resume  M mute  L theme');
+  if (paused) html += '\n\n' + wh('[ PAUSED ]') + '    ' + dim('ESC resume  M mute  L theme  Q quit');
 
   screen.innerHTML = html;
 
