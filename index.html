@@ -990,7 +990,7 @@ function renderMap() {
       const ch = dc === 0 ? '|' : dc > 0 ? '\\' : '/';
       for (let s = 1; s < Math.abs(dr); s++) {
         const r = fp.r + s, c = Math.round(fp.c + dc * s / Math.abs(dr));
-        if (r >= 0 && r < ROWS && c >= 0 && c < COLS) { grid[r][c] = ch; colors[r][c] = C.dim; }
+        if (r >= 0 && r < ROWS && c >= 0 && c < COLS) { grid[r][c] = ch; colors[r][c] = C.txt; }
       }
     });
   });
@@ -1002,8 +1002,8 @@ function renderMap() {
     const isSelected  = i === mapSelIdx;
     const isCleared   = node.cleared;
     const isReachable = node.reachable && !node.cleared;
-    const iconCol  = isCleared ? C.dim : isSelected ? C.white : isReachable ? meta.color : '#222';
-    const labelCol = isCleared ? C.dim : isSelected ? C.white : isReachable ? C.txt      : '#222';
+    const iconCol  = isCleared ? C.dim : isSelected ? C.white : isReachable ? meta.color : C.dim;
+    const labelCol = isCleared ? C.dim : isSelected ? C.white : isReachable ? C.hi       : C.dim;
     const icon = isSelected ? '[' + meta.icon + ']' : ' ' + meta.icon + ' ';
     put(p.r, p.c - 1, icon, iconCol);
     const lbl = meta.label.toUpperCase();
