@@ -32,7 +32,7 @@ Possible features, roughly ordered by effort. Nothing here is committed.
 ## Polish
 
 - **SFX volume separate from music** — currently M mutes everything
-- **Animated title** — subtle drifting characters or cursor blink effects in the background
-- **Run summary screen** — detailed end-of-run stats (words typed, damage dealt, accuracy, time)
+- ~~**Animated title**~~ — ✓ done (subtle drifting background characters)
+- ~~**Run summary screen**~~ — ✓ done (words typed, damage dealt, accuracy, time)
 - **Keyboard layout support** — Dvorak / Colemak word pool option
 - ~~**Mobile / touch**~~ — ✓ done (mobile wall shown on small/touch screens directing to desktop)
