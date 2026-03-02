@@ -33,6 +33,14 @@ window.ROGUE_DATA = {
       wordTiers: [0, 1], loot: { gold: 15 }, phases: [],
       color: '#55efc4', bodyColor: '#27ae60', eyeColor: '#e74c3c',
       size: 18, emoji: '👺',
+      portrait: [
+        '╔══════════╗',
+        '║  /\\  /\\  ║',
+        '║ (·  ·  ) ║',
+        '║   \\__/   ║',
+        '║   |  |   ║',
+        '╚══════════╝',
+      ],
     },
     cave_troll: {
       id: 'cave_troll', name: 'Cave Troll', floor: 1, type: 'normal',
@@ -40,6 +48,14 @@ window.ROGUE_DATA = {
       wordTiers: [1, 2], loot: { gold: 25 }, phases: [],
       color: '#b2bec3', bodyColor: '#636e72', eyeColor: '#fdcb6e',
       size: 28, emoji: '👹',
+      portrait: [
+        '╔══════════╗',
+        '║  (O  O)  ║',
+        '║  [    ]  ║',
+        '║  /\\  /\\  ║',
+        '║ /  \\/  \\ ║',
+        '╚══════════╝',
+      ],
     },
     cursed_tome: {
       id: 'cursed_tome', name: 'Cursed Tome', floor: 1, type: 'elite',
@@ -47,6 +63,14 @@ window.ROGUE_DATA = {
       wordTiers: [1, 2], loot: { gold: 45 }, phases: [],
       color: '#a29bfe', bodyColor: '#6c5ce7', eyeColor: '#fd79a8',
       size: 22, emoji: '📜',
+      portrait: [
+        '╔══════════╗',
+        '║ .------. ║',
+        '║ | ~~~~ | ║',
+        '║ | ~~~~ | ║',
+        '║ \'------\' ║',
+        '╚══════════╝',
+      ],
     },
     goblin_king: {
       id: 'goblin_king', name: 'Goblin King', floor: 1, type: 'boss',
@@ -55,6 +79,14 @@ window.ROGUE_DATA = {
       phases: [{ hpThreshold: 0.5, speedMult: 1.4, intervalMult: 0.7, announce: 'ENRAGED!' }],
       color: '#fdcb6e', bodyColor: '#e17055', eyeColor: '#d63031',
       size: 34, emoji: '👑',
+      portrait: [
+        '╔══════════╗',
+        '║ /\\/\\/\\/\\ ║',
+        '║(O      O)║',
+        '║  \\    /  ║',
+        '║  /|  |\\  ║',
+        '╚══════════╝',
+      ],
     },
     dire_rat: {
       id: 'dire_rat', name: 'Dire Rat', floor: 1, type: 'normal',
@@ -62,6 +94,14 @@ window.ROGUE_DATA = {
       wordTiers: [0, 1], loot: { gold: 10 }, phases: [],
       color: '#b2bec3', bodyColor: '#636e72', eyeColor: '#e74c3c',
       size: 14, emoji: '🐀',
+      portrait: [
+        '╔══════════╗',
+        '║  /\\_/\\   ║',
+        '║ ( o.o )  ║',
+        '║  > --- < ║',
+        '║    ---   ║',
+        '╚══════════╝',
+      ],
     },
     goblin_shaman: {
       id: 'goblin_shaman', name: 'Goblin Shaman', floor: 1, type: 'normal',
@@ -69,6 +109,14 @@ window.ROGUE_DATA = {
       wordTiers: [1, 2], loot: { gold: 18 }, phases: [],
       color: '#a29bfe', bodyColor: '#6c5ce7', eyeColor: '#55efc4',
       size: 18, emoji: '🧙',
+      portrait: [
+        '╔══════════╗',
+        '║   /^\\    ║',
+        '║  (· ·)   ║',
+        '║   )|(    ║',
+        '║   /|\\    ║',
+        '╚══════════╝',
+      ],
     },
 
     // ── Floor 2 ──
@@ -78,6 +126,14 @@ window.ROGUE_DATA = {
       wordTiers: [1, 2], loot: { gold: 30 }, phases: [],
       color: '#636e72', bodyColor: '#2d3436', eyeColor: '#74b9ff',
       size: 20, emoji: '🏹',
+      portrait: [
+        '╔══════════╗',
+        '║  __|__   ║',
+        '║ (· · )   ║',
+        '║  /|=>\\   ║',
+        '║ / |   \\  ║',
+        '╚══════════╝',
+      ],
     },
     void_wraith: {
       id: 'void_wraith', name: 'Void Wraith', floor: 2, type: 'normal',
@@ -85,6 +141,14 @@ window.ROGUE_DATA = {
       wordTiers: [1, 2], loot: { gold: 30 }, phases: [], special: 'invisible',
       color: '#6c5ce7', bodyColor: '#4a0080', eyeColor: '#dfe6e9',
       size: 22, emoji: '👻',
+      portrait: [
+        '╔══════════╗',
+        '║  ~~~~~   ║',
+        '║ ( · · )  ║',
+        '║  ~~~~~   ║',
+        '║   ~~~    ║',
+        '╚══════════╝',
+      ],
     },
     bone_oracle: {
       id: 'bone_oracle', name: 'Bone Oracle', floor: 2, type: 'elite',
@@ -92,6 +156,14 @@ window.ROGUE_DATA = {
       wordTiers: [2, 3], loot: { gold: 60 }, phases: [],
       color: '#dfe6e9', bodyColor: '#b2bec3', eyeColor: '#00cec9',
       size: 24, emoji: '💀',
+      portrait: [
+        '╔══════════╗',
+        '║  _   _   ║',
+        '║ (X) (X)  ║',
+        '║  \\---/   ║',
+        '║  |   |   ║',
+        '╚══════════╝',
+      ],
     },
     lich_lord: {
       id: 'lich_lord', name: 'Lich Lord', floor: 2, type: 'boss',
@@ -103,6 +175,14 @@ window.ROGUE_DATA = {
       ],
       color: '#a29bfe', bodyColor: '#341f97', eyeColor: '#00cec9',
       size: 36, emoji: '🧟',
+      portrait: [
+        '╔══════════╗',
+        '║  /|_|\\   ║',
+        '║ (X   X)  ║',
+        '║   )|(    ║',
+        '║   /|\\    ║',
+        '╚══════════╝',
+      ],
     },
     plague_knight: {
       id: 'plague_knight', name: 'Plague Knight', floor: 2, type: 'normal',
@@ -110,6 +190,14 @@ window.ROGUE_DATA = {
       wordTiers: [1, 2], loot: { gold: 33 }, phases: [],
       color: '#55efc4', bodyColor: '#00b894', eyeColor: '#fdcb6e',
       size: 22, emoji: '⚗️',
+      portrait: [
+        '╔══════════╗',
+        '║  [   ]   ║',
+        '║  |( )|   ║',
+        '║  |   |   ║',
+        '║  /---\\   ║',
+        '╚══════════╝',
+      ],
     },
     spectral_wolf: {
       id: 'spectral_wolf', name: 'Spectral Wolf', floor: 2, type: 'normal',
@@ -117,6 +205,14 @@ window.ROGUE_DATA = {
       wordTiers: [1, 2], loot: { gold: 28 }, phases: [],
       color: '#dfe6e9', bodyColor: '#b2bec3', eyeColor: '#74b9ff',
       size: 18, emoji: '🐺',
+      portrait: [
+        '╔══════════╗',
+        '║  /\\_/\\   ║',
+        '║ ( o o )  ║',
+        '║  ) - (   ║',
+        '║  |   |   ║',
+        '╚══════════╝',
+      ],
     },
 
     // ── Floor 3 ──
@@ -126,6 +222,14 @@ window.ROGUE_DATA = {
       wordTiers: [2, 3], loot: { gold: 45 }, phases: [],
       color: '#74b9ff', bodyColor: '#0984e3', eyeColor: '#fdcb6e',
       size: 24, emoji: '⚔️',
+      portrait: [
+        '╔══════════╗',
+        '║  [###]   ║',
+        '║  | T |   ║',
+        '║  |   |   ║',
+        '║  |___|   ║',
+        '╚══════════╝',
+      ],
     },
     dread_sorcerer: {
       id: 'dread_sorcerer', name: 'Dread Sorcerer', floor: 3, type: 'normal',
@@ -133,6 +237,14 @@ window.ROGUE_DATA = {
       wordTiers: [2, 3], loot: { gold: 45 }, phases: [], special: 'scramble',
       color: '#e17055', bodyColor: '#c0392b', eyeColor: '#a29bfe',
       size: 22, emoji: '🔮',
+      portrait: [
+        '╔══════════╗',
+        '║  _/^\\_   ║',
+        '║ (@ · @)  ║',
+        '║  \\   /   ║',
+        '║  _) (_   ║',
+        '╚══════════╝',
+      ],
     },
     tyrant_prime: {
       id: 'tyrant_prime', name: 'TYRANT PRIME', floor: 3, type: 'boss',
@@ -144,6 +256,14 @@ window.ROGUE_DATA = {
       ],
       color: '#fd79a8', bodyColor: '#6d214f', eyeColor: '#ffd700',
       size: 40, emoji: '👾',
+      portrait: [
+        '╔══════════╗',
+        '║/\\/\\/\\/\\/\\║',
+        '║(X  *  X) ║',
+        '║  \\|||/   ║',
+        '║  /|||\\   ║',
+        '╚══════════╝',
+      ],
     },
     iron_golem: {
       id: 'iron_golem', name: 'Iron Golem', floor: 3, type: 'normal',
@@ -151,6 +271,14 @@ window.ROGUE_DATA = {
       wordTiers: [2, 3], loot: { gold: 50 }, phases: [],
       color: '#b2bec3', bodyColor: '#636e72', eyeColor: '#ffd700',
       size: 28, emoji: '🤖',
+      portrait: [
+        '╔══════════╗',
+        '║ [######] ║',
+        '║ | O  O | ║',
+        '║ |  __  | ║',
+        '║ [______] ║',
+        '╚══════════╝',
+      ],
     },
     flame_wraith: {
       id: 'flame_wraith', name: 'Flame Wraith', floor: 3, type: 'normal',
@@ -158,6 +286,14 @@ window.ROGUE_DATA = {
       wordTiers: [2, 3], loot: { gold: 48 }, phases: [],
       color: '#e17055', bodyColor: '#d63031', eyeColor: '#fdcb6e',
       size: 20, emoji: '🔥',
+      portrait: [
+        '╔══════════╗',
+        '║  )\\ /(   ║',
+        '║ ( · · )  ║',
+        '║  )\\ /(   ║',
+        '║  ~~~~    ║',
+        '╚══════════╝',
+      ],
     },
   },
 
