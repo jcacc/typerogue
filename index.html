@@ -341,6 +341,7 @@ function initCombat(enemyId) {
   invisWordCount = 0;
   floats = [];
   comboCount = 0; comboTime = 0;
+  G.clearingTimer = 0; G.pendingScreen = null;
   paused = false;
   if (eData.type === 'boss') RA.setTheme('boss');
   G.screen = 'combat';
@@ -349,7 +350,25 @@ function initCombat(enemyId) {
 // ── Combat update ──────────────────────────────────────────────────────────────
 function updateCombat(dt) {
   if (paused) return;
-  if (enemy.hp <= 0) return; // clearing pause — wait for setTimeout transition
+
+  // Room-clear pause: freeze the world, count down, then transition
+  if (G.clearingTimer > 0) {
+    G.clearingTimer -= dt;
+    if (G.clearingTimer <= 0) {
+      G.clearingTimer = 0;
+      if (G.pendingScreen === 'victory') {
+        saveBestRun('victory'); G.runOutcome = 'victory'; RunStats.endTime = Date.now();
+        G.screen = 'run_summary'; RA.playVictory(); RA.stopMusic(2);
+      } else if (G.pendingScreen === 'combat_result') {
+        RA.setTheme('dungeon'); G.screen = 'combat_result';
+      } else {
+        G.screen = 'upgrade'; RA.setTheme('dungeon');
+      }
+      G.pendingScreen = null;
+    }
+    return;
+  }
+
   combatTick += dt;
 
   const frozen = freezeTimer > 0;
@@ -445,12 +464,16 @@ function updateCombat(dt) {
 
     upgradeOptions = pickUpgrades(3); upgradeChosen = false; upgradeSelIdx = 0;
     if (enemy.type === 'boss') {
-      if (enemy.id === 'tyrant_prime') { saveBestRun('victory'); G.runOutcome = 'victory'; RunStats.endTime = Date.now(); setTimeout(() => { G.screen = 'run_summary'; RA.playVictory(); RA.stopMusic(2); }, 700); return; }
-      P.floor = (P.floor || 1) + 1;
-      setTimeout(() => { RA.setTheme('dungeon'); G.screen = 'combat_result'; }, 700);
+      if (enemy.id === 'tyrant_prime') {
+        G.pendingScreen = 'victory';
+      } else {
+        P.floor = (P.floor || 1) + 1;
+        G.pendingScreen = 'combat_result';
+      }
     } else {
-      setTimeout(() => { G.screen = 'upgrade'; RA.setTheme('dungeon'); }, 700);
+      G.pendingScreen = 'upgrade';
     }
+    G.clearingTimer = 700;
   }
 }
 
