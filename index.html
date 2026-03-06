@@ -82,6 +82,10 @@
   <a id="gh-link" href="https://github.com/jcacc/typerogue" target="_blank"
      style="position:absolute;bottom:14px;left:50%;transform:translateX(-50%);
             font-family:inherit;font-size:13px;text-decoration:none;z-index:10;"></a>
+  <span id="ver-label"
+     style="position:absolute;bottom:14px;right:18px;
+            font-family:'Menlo','Monaco','Cascadia Code','Consolas','Courier New',monospace;
+            font-size:13px;z-index:10;pointer-events:none;opacity:0.6;"></span>
 </div>
 
 <script src="words.js"></script>
@@ -121,6 +125,9 @@ function applyTheme() {
   game.style.color = t.txt;
   const gh = document.getElementById('gh-link');
   gh.style.color = t.dim;
+  const ver = document.getElementById('ver-label');
+  ver.textContent = VERSION;
+  ver.style.color = t.dim;
 }
 
 // ── HTML helpers ───────────────────────────────────────────────────────────────
@@ -503,7 +510,7 @@ function updateCombat(dt) {
     if (P.deathless && !P.deathlessUsed) {
       P.hp = 1; P.deathlessUsed = true;
       flashMsg = 'DEATHLESS!'; flashColor = '#993366'; flashTimer = 1500;
-    } else { RA.playGameOver(); RA.stopMusic(1.5); G.runOutcome = 'defeat'; RunStats.endTime = Date.now(); checkRunAchievements(); saveBestRun('defeat'); G.screen = 'run_summary'; return; }
+    } else { RA.playGameOver(); RA.stopMusic(1.5); G.runOutcome = 'defeat'; RunStats.endTime = Date.now(); checkRunAchievements(); saveBestRun('defeat'); runSummaryScroll = 0; G.screen = 'run_summary'; return; }
   }
 
   if (enemy.hp <= 0) {
@@ -521,7 +528,7 @@ function updateCombat(dt) {
 
     upgradeOptions = pickUpgrades(3); upgradeChosen = false; upgradeSelIdx = 0;
     if (enemy.type === 'boss') {
-      if (enemy.id === 'tyrant_prime') { G.runOutcome = 'victory'; RunStats.endTime = Date.now(); checkRunAchievements(); saveBestRun('victory'); G.screen = 'run_summary'; RA.playVictory(); RA.stopMusic(2); return; }
+      if (enemy.id === 'tyrant_prime') { G.runOutcome = 'victory'; RunStats.endTime = Date.now(); checkRunAchievements(); saveBestRun('victory'); runSummaryScroll = 0; G.screen = 'run_summary'; RA.playVictory(); RA.stopMusic(2); return; }
       P.floor = (P.floor || 1) + 1;
       RA.setTheme('dungeon'); G.screen = 'combat_result';
     } else {
@@ -969,7 +976,9 @@ function processKey(key) {
     return;
   }
   if (G.screen === 'run_summary' || G.screen === 'gameover' || G.screen === 'victory') {
-    if (key === 'Enter') G.screen = 'title';
+    if (key === 'ArrowDown') runSummaryScroll++;
+    if (key === 'ArrowUp')   runSummaryScroll = Math.max(0, runSummaryScroll - 1);
+    if (key === 'Enter') { runSummaryScroll = 0; G.screen = 'title'; }
     return;
   }
 }
@@ -1003,8 +1012,7 @@ function renderTitle() {
     dim(instr1),
     '',
     best ? dim('best: ' + best) : '',
-    '', '', '',
-    dim(VERSION),
+    '', '', '', '',
     dim(footer),
   ].join('\n');
   clear();
@@ -1320,6 +1328,7 @@ function renderEvent() {
 }
 
 let achievementsScroll = 0;
+let runSummaryScroll = 0;
 const ACHIEVEMENTS_PER_PAGE = 5;
 
 function renderAchievements() {
@@ -1396,7 +1405,8 @@ function renderRunSummary() {
   const accuracy = RunStats.totalKeys > 0
     ? Math.round((RunStats.correctKeys / RunStats.totalKeys) * 100) + '%'
     : 'n/a';
-  screen.innerHTML = [
+  const newAchs = RunStats.newAchievements || [];
+  const allLines = [
     '', '',
     isVictory ? wh('   TYRANT PRIME DEFEATED!') : sp('   DEFEATED', C.red),
     isVictory
@@ -1416,13 +1426,24 @@ function renderRunSummary() {
     dim('   damage dealt: ' + RunStats.dmgDealt),
     dim('   accuracy:     ' + accuracy),
     dim('   time:         ' + timeStr),
-    ...((RunStats.newAchievements||[]).length > 0 ? [
+    ...(newAchs.length > 0 ? [
       '',
       dim('   ── achievements unlocked ───────────'),
-      ...(RunStats.newAchievements||[]).map(a => sp('   ★ ' + a.name, C.gold)),
+      ...newAchs.map(a => sp('   ★ ' + a.name, C.gold)),
     ] : []),
-    '', '',
-    blink ? dim('   PRESS ENTER TO RETURN') : '',
+  ];
+  const PAGE = 18;
+  const maxScroll = Math.max(0, allLines.length - PAGE);
+  runSummaryScroll = Math.min(runSummaryScroll, maxScroll);
+  const canUp = runSummaryScroll > 0;
+  const canDown = runSummaryScroll < maxScroll;
+  const visible = allLines.slice(runSummaryScroll, runSummaryScroll + PAGE);
+  screen.innerHTML = [
+    canUp ? dim('   ↑') : '',
+    ...visible,
+    canDown ? dim('   ↓') : '',
+    '',
+    blink ? dim('   ENTER to return' + (canUp || canDown ? '    ↑ ↓ scroll' : '')) : '',
   ].join('\n');
   clear();
 }
