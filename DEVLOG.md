@@ -1,5 +1,26 @@
 # TYPEROGUE DEVLOG
 
+## 2026-03-06
+
+### 9 new spells + spell stacking
+
+**New spells:**
+- **echo** — repeats the last destroyed word's damage for free (uncommon, 10s CD)
+- **slow** — words move at 20% speed for 4s (common, 8s CD)
+- **reave** — next word deals 3× damage, then resets (uncommon, 12s CD)
+- **ward** — auto-blocks all incoming attack words for 5s (rare, 20s CD)
+- **mark** — highlights one random word in gold; destroying it deals 5× damage (uncommon, 10s CD)
+- **leech** — heal 1 HP per letter typed for 10s (uncommon, 18s CD)
+- **volley** — instantly destroys the 3 shortest words on screen (rare, 16s CD)
+- **chain** — next 5 words each deal +50% bonus damage (rare, 20s CD)
+- **smite** — deals 8 × current combo count as flat damage (rare, 14s CD)
+
+**Spell stacking:**
+Spells can now be acquired multiple times (up to Lv3). Each level amplifies the spell's effect or duration by a stackMult (Lv2 = ×1.5, Lv3 = ×2.0), on top of the Mage's existing spellAmp bonus. The spell bar shows `[1]freeze Lv2` for stacked spells. The shop now allows re-purchasing spells below max level. `chain` and `volley` get wider scope at higher levels (more words, more hits).
+
+**Status bar:**
+Active timed effects (FROZEN, SLOW, HASTE, WARD, LEECH) and one-shot primed effects (CHAIN×N, REAVE, MARK) all appear as a status line below the enemy HP bar. Marked words render in gold on the word layer.
+
 ## 2026-03-01
 
 ### DOM rewrite — killed the canvas

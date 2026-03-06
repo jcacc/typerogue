@@ -95,7 +95,7 @@
 'use strict';
 
 const RD = window.ROGUE_DATA;
-const VERSION = 'v0.5 · 2026-03-05';
+const VERSION = 'v0.6 · 2026-03-06';
 const RA = window.ROGUE_AUDIO;
 const screen   = document.getElementById('screen');
 const wordLayer = document.getElementById('word-layer');
@@ -248,7 +248,8 @@ let words = [], typed = '', activeWordIdx = -1;
 let enemy = null;
 let combatTick = 0, spawnTimer = 0, attackTimer = 0, pickupTimer = 0;
 let comboCount = 0, comboTime = 0;
-let freezeTimer = 0, hasteTimer = 0, flashTimer = 0;
+let freezeTimer = 0, hasteTimer = 0, slowTimer = 0, wardTimer = 0, leechTimer = 0, flashTimer = 0;
+let chainCount = 0, reaveActive = false, lastWordDmg = 0, markedWordText = null;
 let flashMsg = '', flashColor = '#fff';
 let scrambleTimer = 0, invisWordCount = 0;
 let P = {};
@@ -412,7 +413,8 @@ function initCombat(enemyId) {
   combatTick = 0;
   spawnTimer  = enemy.effectiveInterval * 0.5;
   attackTimer = enemy.attackInterval * 0.7;
-  freezeTimer = 0; hasteTimer = 0; flashTimer = 0; flashMsg = '';
+  freezeTimer = 0; hasteTimer = 0; slowTimer = 0; wardTimer = 0; leechTimer = 0; flashTimer = 0; flashMsg = '';
+  chainCount = 0; reaveActive = false; lastWordDmg = 0; markedWordText = null;
   if (eData.type === 'boss') RunStats.bossNoDamage = true;
   scrambleTimer = eData.special === 'scramble' ? 15000 : 0;
   pickupTimer = 14000 + Math.random() * 8000;
@@ -433,7 +435,10 @@ function updateCombat(dt) {
   const frozen = freezeTimer > 0;
   if (frozen) freezeTimer -= dt;
   if (hasteTimer > 0) hasteTimer -= dt;
-  if (flashTimer  > 0) flashTimer -= dt;
+  if (slowTimer  > 0) slowTimer  = Math.max(0, slowTimer  - dt);
+  if (wardTimer  > 0) wardTimer  = Math.max(0, wardTimer  - dt);
+  if (leechTimer > 0) leechTimer = Math.max(0, leechTimer - dt);
+  if (flashTimer > 0) flashTimer -= dt;
   (P.spellCDs || []).forEach((cd, i) => { if (cd > 0) P.spellCDs[i] = Math.max(0, cd - dt); });
 
   if (enemy.id === 'dread_sorcerer') {
@@ -445,7 +450,7 @@ function updateCombat(dt) {
     }
   }
 
-  const speedFactor = frozen ? 0 : hasteTimer > 0 ? 0.6 : 1.0;
+  const speedFactor = frozen ? 0 : slowTimer > 0 ? 0.2 : hasteTimer > 0 ? 0.6 : 1.0;
   const speedMod = (P.upgrades && P.upgrades.includes('dk_chaos')) ? 2.0 : 1.0;
 
   for (let i = words.length - 1; i >= 0; i--) {
@@ -455,6 +460,13 @@ function updateCombat(dt) {
 
     if (w.y >= WORD_EXIT_Y + 10) {
       if (w.isAttack) {
+        if (wardTimer > 0) {
+          spawnFloat(W/2, WORD_EXIT_Y - 10, 'WARDED!', C.blue);
+          words.splice(i, 1);
+          if (activeWordIdx >= i) activeWordIdx = Math.max(-1, activeWordIdx - 1);
+          updateActiveWord();
+          continue;
+        }
         let dmg = enemy.attackDmg;
         if (P.shield > 0) {
           const ab = Math.min(dmg, P.shield);
@@ -640,18 +652,44 @@ function destroyWord(idx) {
   const cMult = comboCount >= 10 ? 2.0 : comboCount >= 6 ? 1.5 : comboCount >= 3 ? 1.25 : 1.0;
   if (cMult > 1.0) dmg = Math.ceil(dmg * cMult);
 
+  // ── Spell effects on word destroy ──
+  let extraLabel = '';
+  if (reaveActive) {
+    const reaveMult = 3 * ((P.spellStacks && P.spellStacks['reave']) || 1);
+    dmg = Math.ceil(dmg * reaveMult);
+    reaveActive = false;
+    extraLabel = ' REAVE!';
+  }
+  if (w.text === markedWordText && markedWordText) {
+    const markMult = P.spellStacks && P.spellStacks['mark'] >= 3 ? 10 : P.spellStacks && P.spellStacks['mark'] >= 2 ? 7 : 5;
+    dmg = Math.ceil(dmg * markMult);
+    markedWordText = null;
+    extraLabel += ' MARK!';
+  }
+  if (chainCount > 0) {
+    dmg = Math.ceil(dmg * 1.5);
+    chainCount--;
+    extraLabel += ' ×chain';
+  }
+
   enemy.hp = Math.max(0, enemy.hp - dmg);
+  lastWordDmg = dmg;
   RunStats.wordsDestroyed++;
   RunStats.dmgDealt += dmg;
   if (w.text.length >= 10) unlockAchievement('lexicographer');
   if (RunStats.wordsDestroyed >= 150) unlockAchievement('wordsmith');
   RA.playWordDestroy(); RA.playEnemyHit();
-  const floatLabel = cMult > 1.0 ? `-${dmg} ×${cMult}` : `-${dmg}`;
+  const floatLabel = (cMult > 1.0 ? `-${dmg} ×${cMult}` : `-${dmg}`) + extraLabel;
   spawnFloat(w.x, w.y - 20, floatLabel, C.gold);
 
   if (P.vampiric) {
     P.hp = Math.min(P.maxHp, P.hp + 2);
     spawnFloat(W/2 + 20, WORD_EXIT_Y - 20, '+2', C.txt);
+  }
+  if (leechTimer > 0) {
+    const lheal = w.text.length * ((P.spellStacks && P.spellStacks['leech']) || 1);
+    P.hp = Math.min(P.maxHp, P.hp + lheal);
+    spawnFloat(W/2 - 20, WORD_EXIT_Y - 20, `+${lheal}`, C.cyan);
   }
 
   words.splice(idx, 1);
@@ -666,28 +704,86 @@ function activateSpell(spellIdx) {
   const upg = RD.upgrades.find(u => u.spell === spellName);
   if (!upg) return;
   const amp = P.spellAmp ? 1.5 : 1.0;
+  const stacks = (P.spellStacks && P.spellStacks[spellName]) || 1;
+  const stackMult = stacks >= 3 ? 2.0 : stacks >= 2 ? 1.5 : 1.0;
+  const totalAmp = amp * stackMult;
   P.spellCDs[spellIdx] = upg.cd;
   RA.playSpellCast();
   switch (spellName) {
-    case 'freeze':  freezeTimer = 3000 * amp; spawnFloat(W/2, 160, 'FREEZE!', C.blue); break;
-    case 'shield':  P.shield = (P.shield||0) + Math.floor(30*amp); spawnFloat(W/2, WORD_EXIT_Y-30, `SHIELD+${Math.floor(30*amp)}`, C.blue); break;
+    case 'freeze':  freezeTimer = Math.max(freezeTimer, 0) + 3000 * totalAmp; spawnFloat(W/2, 160, 'FREEZE!', C.blue); break;
+    case 'shield':  P.shield = (P.shield||0) + Math.floor(30*totalAmp); spawnFloat(W/2, WORD_EXIT_Y-30, `SHIELD+${Math.floor(30*totalAmp)}`, C.blue); break;
     case 'nova': {
-      const nd = Math.floor(15*amp);
+      const nd = Math.floor(15*totalAmp);
       enemy.hp = Math.max(0, enemy.hp - words.length * nd);
       spawnFloat(W/2, H/2, `NOVA! -${words.length*nd}`, C.hi);
       words = []; typed = ''; activeWordIdx = -1; break;
     }
-    case 'haste':   hasteTimer = 5000 * amp; spawnFloat(W/2, 160, 'HASTE!', C.gold); break;
+    case 'haste':   hasteTimer = Math.max(hasteTimer, 0) + 5000 * totalAmp; spawnFloat(W/2, 160, 'HASTE!', C.gold); break;
     case 'drain': {
-      const da = Math.floor(20*amp);
+      const da = Math.floor(20*totalAmp);
       enemy.hp = Math.max(0, enemy.hp - da);
       P.hp = Math.min(P.maxHp, P.hp + da);
       spawnFloat(W/2, H/2, `DRAIN +${da}HP`, C.txt); break;
     }
     case 'blast': {
-      const bd = Math.floor(80*amp);
+      const bd = Math.floor(80*totalAmp);
       enemy.hp = Math.max(0, enemy.hp - bd);
       spawnFloat(W/2, 160, `-${bd}`, C.hi); break;
+    }
+    case 'echo': {
+      if (lastWordDmg > 0) {
+        const ed = Math.floor(lastWordDmg * totalAmp);
+        enemy.hp = Math.max(0, enemy.hp - ed);
+        RunStats.dmgDealt += ed;
+        spawnFloat(W/2, H/2, `ECHO -${ed}`, C.gold);
+      } else {
+        spawnFloat(W/2, H/2, 'ECHO (no word yet)', C.dim);
+      }
+      break;
+    }
+    case 'slow':  slowTimer  = Math.max(slowTimer,  0) + 4000 * totalAmp; spawnFloat(W/2, 160, 'SLOW!',  C.blue); break;
+    case 'reave': reaveActive = true; spawnFloat(W/2, 160, 'REAVE!', C.hi); break;
+    case 'ward':  wardTimer  = Math.max(wardTimer,  0) + 5000 * totalAmp; spawnFloat(W/2, 160, 'WARD!',  C.blue); break;
+    case 'mark': {
+      const candidates = words.filter(w => !w.isAttack && !w.isPickup);
+      if (candidates.length > 0) {
+        if (markedWordText) { const old = words.find(w => w.text === markedWordText); if (old) old.marked = false; }
+        const target = rnd(candidates);
+        target.marked = true;
+        markedWordText = target.text;
+        spawnFloat(W/2, 160, 'MARK!', C.gold);
+      } else {
+        spawnFloat(W/2, 160, 'MARK (no words)', C.dim);
+      }
+      break;
+    }
+    case 'leech': leechTimer = Math.max(leechTimer, 0) + 10000 * totalAmp; spawnFloat(W/2, 160, 'LEECH!', C.cyan); break;
+    case 'volley': {
+      const vcount = stacks >= 3 ? 7 : stacks >= 2 ? 5 : 3;
+      const targets = words
+        .filter(w => !w.isAttack && !w.isPickup)
+        .sort((a, b) => a.text.length - b.text.length)
+        .slice(0, vcount);
+      let vtotal = 0;
+      for (const t of targets) {
+        const vd = Math.ceil(t.text.length * P.dmgMult * amp);
+        enemy.hp = Math.max(0, enemy.hp - vd);
+        vtotal += vd;
+        spawnFloat(t.x, t.y - 20, `-${vd}`, C.hi);
+        const vi = words.indexOf(t);
+        if (vi >= 0) { words.splice(vi, 1); if (activeWordIdx >= vi) activeWordIdx = Math.max(-1, activeWordIdx - 1); }
+      }
+      RunStats.dmgDealt += vtotal;
+      typed = ''; updateActiveWord();
+      spawnFloat(W/2, 160, `VOLLEY! ×${targets.length}`, C.hi);
+      break;
+    }
+    case 'chain': chainCount += 5 * stacks; spawnFloat(W/2, 160, `CHAIN! +${5*stacks}`, C.gold); break;
+    case 'smite': {
+      const sd = Math.max(8, Math.floor(comboCount * 8 * totalAmp));
+      enemy.hp = Math.max(0, enemy.hp - sd);
+      RunStats.dmgDealt += sd;
+      spawnFloat(W/2, 160, `SMITE -${sd}`, C.hi); break;
     }
   }
 }
@@ -724,7 +820,10 @@ function applyUpgrade(upg) {
   if (e.chaos)        P.dmgMult *= 2;
   if (upg.type === 'spell' && upg.spell) {
     if (!P.spells) { P.spells = []; P.spellCDs = []; }
-    if (!P.spells.includes(upg.spell)) { P.spells.push(upg.spell); P.spellCDs.push(0); }
+    if (!P.spellStacks) P.spellStacks = {};
+    const curStacks = P.spellStacks[upg.spell] || 0;
+    if (curStacks === 0) { P.spells.push(upg.spell); P.spellCDs.push(0); }
+    P.spellStacks[upg.spell] = Math.min(3, curStacks + 1);
   }
 }
 
@@ -735,11 +834,11 @@ function startRun(classId) {
     classId, hp:Math.round((cls.hp + (classId==='warrior'?15:0)) * DIFFICULTIES[diffIdx].startHpMult),
     maxHp:Math.round((cls.hp + (classId==='warrior'?15:0)) * DIFFICULTIES[diffIdx].startHpMult),
     dmgMult:cls.dmgMult, wordSpeedMult:cls.wordSpeedMult,
-    gold:DIFFICULTIES[diffIdx].startGold, floor:1, kills:0, spells:[], spellCDs:[], upgrades:[],
+    gold:DIFFICULTIES[diffIdx].startGold, floor:1, kills:0, spells:[], spellCDs:[], spellStacks:{}, upgrades:[],
     berserk:false, vampiric:false, longshot:false, deathless:false,
     shield:0, regenPerRoom:0, spellAmp:classId==='mage',
   };
-  if (cls.startSpell) { P.spells.push(cls.startSpell); P.spellCDs.push(0); }
+  if (cls.startSpell) { P.spells.push(cls.startSpell); P.spellCDs.push(0); P.spellStacks[cls.startSpell] = 1; }
   RunStats = { wordsDestroyed:0, dmgDealt:0, totalKeys:0, correctKeys:0, startTime:Date.now(), goldEarned:0, newAchievements:[] };
   buildMap(); RA.setTheme('dungeon'); G.screen = 'map';
 }
@@ -767,7 +866,10 @@ function enterNode(nodeIdx) {
 }
 
 function setupShop(nodeIdx) {
-  const available = RD.upgrades.filter(u => !P.upgrades.includes(u.id));
+  const available = RD.upgrades.filter(u => {
+    if (u.type === 'spell' && u.spell) return ((P.spellStacks && P.spellStacks[u.spell]) || 0) < 3;
+    return !P.upgrades.includes(u.id);
+  });
   const pool = [...available].sort(() => Math.random() - 0.5).slice(0, 3);
   G.shopItems = pool.map(u => {
     const cost = u.rarity==='epic'?80 : u.rarity==='rare'?55 : u.rarity==='uncommon'?35 : 20;
@@ -1138,13 +1240,13 @@ function renderMap() {
 
 function renderCombat() {
   const etype = enemy.type === 'boss' ? ' [BOSS]' : enemy.type === 'elite' ? ' [ELITE]' : '';
-  const frozen = freezeTimer > 0;
   const cursor = Math.floor(combatTick / 400) % 2 === 0 ? '_' : ' ';
 
   const spellStr = P.spells && P.spells.length > 0
     ? '\n' + P.spells.map((s, i) => {
         const cd = P.spellCDs[i] || 0;
-        return sp('[' + (i+1) + ']' + s + (cd > 0 ? ' '+(cd/1000).toFixed(1)+'s' : ''), cd > 0 ? C.dim : C.txt);
+        const lv = (P.spellStacks && P.spellStacks[s] > 1) ? ' Lv' + P.spellStacks[s] : '';
+        return sp('[' + (i+1) + ']' + s + lv + (cd > 0 ? ' '+(cd/1000).toFixed(1)+'s' : ''), cd > 0 ? C.dim : C.txt);
       }).join('   ')
     : '';
 
@@ -1155,14 +1257,26 @@ function renderCombat() {
     ? '\n' + sp('COMBO x' + comboCount + '  ×' + dispComboMult.toFixed(2) + ' dmg', C.gold)
     : '';
 
+  const statusItems = [];
+  if (freezeTimer > 0) statusItems.push(sp('FROZEN', C.blue));
+  if (slowTimer   > 0) statusItems.push(sp('SLOW',   C.blue));
+  if (hasteTimer  > 0) statusItems.push(sp('HASTE',  C.gold));
+  if (wardTimer   > 0) statusItems.push(sp('WARD',   C.blue));
+  if (leechTimer  > 0) statusItems.push(sp('LEECH',  C.cyan));
+  if (chainCount  > 0) statusItems.push(sp('CHAIN×' + chainCount, C.gold));
+  if (reaveActive)     statusItems.push(sp('REAVE',  C.hi));
+  if (markedWordText)  statusItems.push(sp('MARK',   C.gold));
+  const statusStr = statusItems.length > 0 ? '\n' + statusItems.join('  ') : '';
+  const activeLines = (statusItems.length > 0 ? 1 : 0) + (comboCount >= 3 ? 1 : 0);
+
   let html =
     sp(enemy.name.toUpperCase() + etype, enemy.color || C.red) +
     (enemy.currentPhase > 0 ? '  ' + sp('PHASE '+(enemy.currentPhase+1), '#993366') : '') +
     '                    ' + dim('FLOOR ' + P.floor) + '\n' +
     bar(enemy.hp, enemy.maxHp) +
-    (frozen ? '\n' + sp('* frozen *', C.blue) : '') +
+    statusStr +
     comboStr +
-    '\n'.repeat(comboCount >= 3 ? 14 : 15) +
+    '\n'.repeat(Math.max(1, 15 - activeLines)) +
     dim('─'.repeat(78)) + '\n' +
     bar(P.hp, P.maxHp, P.classId.toUpperCase()) + shieldStr +
     '      ' + sp('¢' + P.gold, C.gold) +
@@ -1198,9 +1312,11 @@ function renderCombat() {
         : sp(txt, isActive ? C.white : (blink ? eff.color : C.dim));
       inner += '<br>' + sp(eff.label, eff.color);
     } else if (tLen > 0) {
-      inner = sp(txt.slice(0,tLen), C.white) + sp(txt.slice(tLen), w.isAttack ? C.red : C.dim);
+      const restColor = w.isAttack ? C.red : w.marked ? C.gold : C.dim;
+      inner = sp(txt.slice(0,tLen), C.white) + sp(txt.slice(tLen), restColor);
     } else {
-      inner = sp(txt, w.isAttack ? C.red : isActive ? C.hi : C.txt);
+      const baseColor = w.isAttack ? C.red : w.marked ? C.gold : isActive ? C.hi : C.txt;
+      inner = sp(txt, baseColor);
     }
 
     wHtml += `<span class="w" style="left:${w.x}px;top:${w.y}px">${inner}</span>`;
@@ -1488,12 +1604,22 @@ function renderInstructions() {
     '',
     wh('   spells'),
     dim('   press 1-3 to cast a spell (if you have one)'),
-    dim('   freeze  — stops all words briefly'),
+    dim('   acquiring the same spell again raises its level (max Lv3)'),
+    dim('   freeze  — stops all words for 3s'),
     dim('   shield  — absorbs incoming damage'),
     dim('   nova    — damages enemy for each word on screen'),
-    dim('   haste   — speeds up your typing window'),
+    dim('   haste   — slows words 40% for 5s'),
     dim('   drain   — deals damage and heals you'),
     dim('   blast   — heavy single hit'),
+    dim('   echo    — repeat last destroyed word\'s damage for free'),
+    dim('   slow    — words crawl at 20% speed for 4s'),
+    dim('   reave   — next word dealt 3× damage'),
+    dim('   ward    — block all enemy attacks for 5s'),
+    dim('   mark    — highlight one word; destroying it deals 5× dmg'),
+    dim('   leech   — heal 1 HP per letter typed for 10s'),
+    dim('   volley  — instantly destroy 3 shortest words'),
+    dim('   chain   — next 5 words deal +50% damage'),
+    dim('   smite   — deal 8 × current combo as flat damage'),
     '',
     wh('   combo'),
     dim('   destroy words in quick succession to build a multiplier'),

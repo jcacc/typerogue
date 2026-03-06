@@ -19,20 +19,13 @@ Possible features, roughly ordered by effort. Nothing here is committed.
 
 - **More classes** — e.g. Priest (healing focus), Berserker (no shield, pure offense)
 - **More floors** — floor 4+ with new enemy set and a final final boss
-- **More spells** — candidates below; current set: freeze, shield, nova, haste, drain, blast
-  - **echo** — repeats your last completed word, dealing its damage again for free (easy)
-  - **slow** — like freeze but words keep moving at ~20% speed; shorter cooldown (easy)
-  - **reave** — next word deals 3× damage, one-shot buff (easy)
-  - **ward** — auto-blocks all incoming attack words for 5 seconds (medium)
-  - **mark** — highlights one random word; completing it deals 5× damage (medium)
-  - **leech** — every word destroyed heals 1 HP per letter for 10 seconds (medium)
-  - **volley** — instantly destroys the 3 shortest words on screen (medium)
-  - **chain** — next 5 words each deal +50% bonus damage, stacking (medium)
-  - **smite** — bonus damage scaling with current combo count (medium)
+- ~~**More spells**~~ — ✓ done (echo, slow, reave, ward, mark, leech, volley, chain, smite added)
+  - current set: freeze, shield, nova, haste, drain, blast, echo, slow, reave, ward, mark, leech, volley, chain, smite
   - **curse** — poisons enemy for damage equal to their current HP% over time (hard)
   - **taunt** — Warrior only; forces all words to center lane (hard)
   - **shadowstep** — Rogue only; next 3 words can be typed with no lock-in penalty (hard)
   - **overload** — Mage only; doubles spell amp for 8s but disables spells after (hard)
+- ~~**Spell stacking**~~ — ✓ done (spells can be acquired up to Lv3; each level amplifies effect/duration)
 - **More upgrade types** — on-kill effects, scaling passives, spell synergies
 - **Word modifiers** — scrambled letters, missing vowels, reversed words as a floor mechanic
 
