@@ -91,7 +91,7 @@
 'use strict';
 
 const RD = window.ROGUE_DATA;
-const VERSION = 'v0.4 · 2026-03-01';
+const VERSION = 'v0.5 · 2026-03-05';
 const RA = window.ROGUE_AUDIO;
 const screen   = document.getElementById('screen');
 const wordLayer = document.getElementById('word-layer');
@@ -159,6 +159,65 @@ function bestRunLine() {
   return tag + '  ' + b.classId + dif + '  ' + b.kills + ' kills  ¢' + b.gold;
 }
 
+// ── Achievements ───────────────────────────────────────────────────────────────
+const ACHIEVEMENTS = [
+  { id:'first_clear',   name:'VICTORIOUS',    desc:'Complete your first run'             },
+  { id:'hard_clear',    name:'NO MERCY',      desc:'Win on Hard difficulty'              },
+  { id:'warrior_clear', name:'IRON WILL',     desc:'Win a run as Warrior'                },
+  { id:'rogue_clear',   name:'KNIFE WORK',    desc:'Win a run as Rogue'                  },
+  { id:'mage_clear',    name:'ARCANE VICTOR', desc:'Win a run as Mage'                   },
+  { id:'combo_king',    name:'COMBO KING',    desc:'Reach a ×10 combo'                   },
+  { id:'speedrun',      name:'SPEEDSTER',     desc:'Win a run in under 7 minutes'        },
+  { id:'sharpshooter',  name:'SHARPSHOOTER',  desc:'Win with 95%+ typing accuracy'       },
+  { id:'wordsmith',     name:'WORDSMITH',     desc:'Type 150 words in a single run'      },
+  { id:'lexicographer', name:'LEXICOGRAPHER', desc:'Type a word with 10+ letters'        },
+  { id:'rich',          name:'GOLD FEVER',    desc:'Earn ¢300 from kills in one run'     },
+  { id:'untouchable',   name:'UNTOUCHABLE',   desc:'Defeat a boss without taking damage' },
+];
+
+let earnedAchievements = (() => {
+  try { return new Set(JSON.parse(localStorage.getItem('typerogue_achievements')) || []); } catch { return new Set(); }
+})();
+let achievementQueue = [];
+let achievementBanner = null; // { name, timer }
+
+function unlockAchievement(id) {
+  if (earnedAchievements.has(id)) return false;
+  const ach = ACHIEVEMENTS.find(a => a.id === id);
+  if (!ach) return false;
+  earnedAchievements.add(id);
+  try { localStorage.setItem('typerogue_achievements', JSON.stringify([...earnedAchievements])); } catch {}
+  achievementQueue.push(ach);
+  if (RunStats && RunStats.newAchievements) RunStats.newAchievements.push(ach);
+  return true;
+}
+
+function tickAchievementBanner(dt) {
+  if (achievementBanner) {
+    achievementBanner.timer -= dt;
+    if (achievementBanner.timer <= 0) achievementBanner = null;
+  }
+  if (!achievementBanner && achievementQueue.length > 0) {
+    achievementBanner = { ...achievementQueue.shift(), timer: 3000 };
+  }
+}
+
+function checkRunAchievements() {
+  const isVictory = G.runOutcome === 'victory';
+  if (isVictory) {
+    unlockAchievement('first_clear');
+    if (DIFFICULTIES[diffIdx].id === 'hard') unlockAchievement('hard_clear');
+    if (P.classId === 'warrior') unlockAchievement('warrior_clear');
+    if (P.classId === 'rogue')   unlockAchievement('rogue_clear');
+    if (P.classId === 'mage')    unlockAchievement('mage_clear');
+    const elapsed = ((RunStats.endTime || Date.now()) - RunStats.startTime) / 1000;
+    if (elapsed < 420) unlockAchievement('speedrun');
+    const acc = RunStats.totalKeys > 0 ? RunStats.correctKeys / RunStats.totalKeys : 0;
+    if (acc >= 0.95) unlockAchievement('sharpshooter');
+    if ((RunStats.goldEarned || 0) >= 300) unlockAchievement('rich');
+  }
+}
+
 // ── Difficulty ─────────────────────────────────────────────────────────────────
 const DIFFICULTIES = [
   { id:'beginner', label:'BEGINNER', wordSpeed:0.6,  interval:1.5,  attackInterval:1.7,  enemyHp:0.6,  attackDmg:0.5, startHpMult:1.3,  startGold:60, maxWords:4  },
@@ -166,6 +225,9 @@ const DIFFICULTIES = [
   { id:'hard',     label:'HARD',     wordSpeed:1.35, interval:0.75, attackInterval:0.75, enemyHp:1.3,  attackDmg:1.5, startHpMult:0.85, startGold:15, maxWords:14 },
 ];
 let diffIdx = 1; // default: normal
+let stsMode = false;
+const STS_NAMES = { warrior:'IRONCLAD', rogue:'SILENT', mage:'DEFECT' };
+function className(id) { return stsMode ? (STS_NAMES[id] || id.toUpperCase()) : (RD.classes[id]?.name || id.toUpperCase()); }
 
 // ── State ──────────────────────────────────────────────────────────────────────
 let G = { screen:'title' };
@@ -344,6 +406,7 @@ function initCombat(enemyId) {
   spawnTimer  = enemy.effectiveInterval * 0.5;
   attackTimer = enemy.attackInterval * 0.7;
   freezeTimer = 0; hasteTimer = 0; flashTimer = 0; flashMsg = '';
+  if (eData.type === 'boss') RunStats.bossNoDamage = true;
   scrambleTimer = eData.special === 'scramble' ? 15000 : 0;
   pickupTimer = 14000 + Math.random() * 8000;
   invisWordCount = 0;
@@ -393,6 +456,7 @@ function updateCombat(dt) {
         }
         if (dmg > 0) {
           P.hp = Math.max(0, P.hp - dmg);
+          if (enemy.type === 'boss') RunStats.bossNoDamage = false;
           RA.playPlayerHit();
           spawnFloat(W/2, WORD_EXIT_Y - 10, `-${dmg}`, C.red);
           flashTimer = 400; flashMsg = `-${dmg} HP`; flashColor = C.red;
@@ -433,19 +497,23 @@ function updateCombat(dt) {
   }
 
   updateFloats(dt);
+  tickAchievementBanner(dt);
 
   if (P.hp <= 0) {
     if (P.deathless && !P.deathlessUsed) {
       P.hp = 1; P.deathlessUsed = true;
       flashMsg = 'DEATHLESS!'; flashColor = '#993366'; flashTimer = 1500;
-    } else { RA.playGameOver(); RA.stopMusic(1.5); saveBestRun('defeat'); G.runOutcome = 'defeat'; RunStats.endTime = Date.now(); G.screen = 'run_summary'; return; }
+    } else { RA.playGameOver(); RA.stopMusic(1.5); G.runOutcome = 'defeat'; RunStats.endTime = Date.now(); checkRunAchievements(); saveBestRun('defeat'); G.screen = 'run_summary'; return; }
   }
 
   if (enemy.hp <= 0) {
     enemy.hp = 0; words = [];
     RA.playRoomClear();
     P.kills = (P.kills || 0) + 1;
-    P.gold = (P.gold || 0) + (enemy.loot && enemy.loot.gold || 0);
+    const lootGold = (enemy.loot && enemy.loot.gold) || 0;
+    P.gold = (P.gold || 0) + lootGold;
+    RunStats.goldEarned = (RunStats.goldEarned || 0) + lootGold;
+    if (enemy.type === 'boss' && RunStats.bossNoDamage) unlockAchievement('untouchable');
     mapNodes[G.combatNodeIdx].cleared = true;
     (G.mapAdj[G.combatNodeIdx] || []).forEach(i => { mapNodes[i].reachable = true; });
     mapSelIdx = (G.mapAdj[G.combatNodeIdx] || [])[0] || 0;
@@ -453,7 +521,7 @@ function updateCombat(dt) {
 
     upgradeOptions = pickUpgrades(3); upgradeChosen = false; upgradeSelIdx = 0;
     if (enemy.type === 'boss') {
-      if (enemy.id === 'tyrant_prime') { saveBestRun('victory'); G.runOutcome = 'victory'; RunStats.endTime = Date.now(); G.screen = 'run_summary'; RA.playVictory(); RA.stopMusic(2); return; }
+      if (enemy.id === 'tyrant_prime') { G.runOutcome = 'victory'; RunStats.endTime = Date.now(); checkRunAchievements(); saveBestRun('victory'); G.screen = 'run_summary'; RA.playVictory(); RA.stopMusic(2); return; }
       P.floor = (P.floor || 1) + 1;
       RA.setTheme('dungeon'); G.screen = 'combat_result';
     } else {
@@ -540,7 +608,7 @@ function destroyWord(idx) {
   if (w.isPickup) {
     const eff = w.pickupEffect;
     if (eff.type === 'hp')     P.hp = Math.min(P.maxHp, P.hp + eff.amount);
-    if (eff.type === 'gold')   P.gold = (P.gold || 0) + eff.amount;
+    if (eff.type === 'gold')   { P.gold = (P.gold || 0) + eff.amount; RunStats.goldEarned += eff.amount; }
     if (eff.type === 'shield') P.shield = (P.shield || 0) + eff.amount;
     if (eff.type === 'dmg')    P.dmgMult += eff.amount;
     RA.playWordDestroy();
@@ -561,12 +629,15 @@ function destroyWord(idx) {
   if (comboCount > 0 && (combatTick - comboTime) <= cWindow) comboCount = Math.min(comboCount + 1, 20);
   else comboCount = 1;
   comboTime = combatTick;
+  if (comboCount >= 10) unlockAchievement('combo_king');
   const cMult = comboCount >= 10 ? 2.0 : comboCount >= 6 ? 1.5 : comboCount >= 3 ? 1.25 : 1.0;
   if (cMult > 1.0) dmg = Math.ceil(dmg * cMult);
 
   enemy.hp = Math.max(0, enemy.hp - dmg);
   RunStats.wordsDestroyed++;
   RunStats.dmgDealt += dmg;
+  if (w.text.length >= 10) unlockAchievement('lexicographer');
+  if (RunStats.wordsDestroyed >= 150) unlockAchievement('wordsmith');
   RA.playWordDestroy(); RA.playEnemyHit();
   const floatLabel = cMult > 1.0 ? `-${dmg} ×${cMult}` : `-${dmg}`;
   spawnFloat(w.x, w.y - 20, floatLabel, C.gold);
@@ -662,7 +733,7 @@ function startRun(classId) {
     shield:0, regenPerRoom:0, spellAmp:classId==='mage',
   };
   if (cls.startSpell) { P.spells.push(cls.startSpell); P.spellCDs.push(0); }
-  RunStats = { wordsDestroyed:0, dmgDealt:0, totalKeys:0, correctKeys:0, startTime:Date.now() };
+  RunStats = { wordsDestroyed:0, dmgDealt:0, totalKeys:0, correctKeys:0, startTime:Date.now(), goldEarned:0, newAchievements:[] };
   buildMap(); RA.setTheme('dungeon'); G.screen = 'map';
 }
 
@@ -758,6 +829,11 @@ function processKey(key) {
     if (key === 'Enter') { G.screen = 'class_select'; RA.startMusic('dungeon'); }
     if (key === 'l' || key === 'L') { darkMode = !darkMode; applyTheme(); }
     if (key === 'i' || key === 'I') { G.screen = 'instructions'; }
+    if (key === 'a' || key === 'A') { G.screen = 'achievements'; }
+    return;
+  }
+  if (G.screen === 'achievements') {
+    if (key === 'Escape' || key === 'Enter') G.screen = 'title';
     return;
   }
   if (G.screen === 'instructions') {
@@ -767,6 +843,7 @@ function processKey(key) {
   if (G.screen === 'class_select') {
     if (key === 'ArrowLeft')  classSelectIdx = (classSelectIdx + 2) % 3;
     if (key === 'ArrowRight') classSelectIdx = (classSelectIdx + 1) % 3;
+    if (key === 's' || key === 'S') stsMode = !stsMode;
     if (key === 'Enter')      { G.screen = 'difficulty_select'; }
     return;
   }
@@ -907,7 +984,7 @@ function renderTitle() {
   if (!titleParticles.length) initTitleParticles();
   const blink = Math.floor(titleTick / 35) % 2 === 0;
   titleTick++;
-  const footer = '[I] instructions  ·  [L] ' + (darkMode ? 'light mode' : 'dark mode') + '  ·  by joe accardi';
+  const footer = '[I] instructions  ·  [A] achievements  ·  [L] ' + (darkMode ? 'light mode' : 'dark mode') + '  ·  by joe accardi';
   const instr1 = 'type words to destroy enemies  —  survive all 3 floors';
   const instr2 = '<- -> class  ·  1-3 spells  ·  ESC pause';
   const best = bestRunLine();
@@ -950,7 +1027,7 @@ function renderClassSelect() {
   const cls = RD.classes[CLASS_IDS[classSelectIdx]];
   const cid = CLASS_IDS[classSelectIdx];
   const tabs = CLASS_IDS.map((id, i) =>
-    i === classSelectIdx ? wh('[ ' + RD.classes[id].name + ' ]') : dim('  ' + RD.classes[id].name + '  ')
+    i === classSelectIdx ? wh('[ ' + className(id) + ' ]') : dim('  ' + className(id) + '  ')
   ).join('     ');
   screen.innerHTML = [
     '',
@@ -969,7 +1046,7 @@ function renderClassSelect() {
     '',
     dim('   ' + cls.desc),
     '', '', '',
-    dim('   <- -> select    ENTER confirm'),
+    dim('   <- -> select    ENTER confirm    [S] ' + (stsMode ? 'STS mode ON' : 'STS mode')),
   ].join('\n');
   clear();
 }
@@ -1082,6 +1159,7 @@ function renderCombat() {
     sp('> ', C.dim) + wh(esc(typed) + cursor);
 
   if (flashTimer > 0) html += '\n\n' + sp(flashMsg, flashColor);
+  if (achievementBanner && achievementBanner.timer > 0) html += '\n' + sp('★ ' + achievementBanner.name + ' ★', C.gold);
   if (paused) html += '\n\n' + wh('[ PAUSED ]') + '    ' + dim('ESC resume  M mute  L theme  Q quit');
 
   screen.innerHTML = html;
@@ -1237,6 +1315,28 @@ function renderEvent() {
   clear();
 }
 
+function renderAchievements() {
+  const total = ACHIEVEMENTS.length;
+  const earned = earnedAchievements.size;
+  const lines = [
+    '',
+    wh('   ACHIEVEMENTS'),
+    dim('   ' + '─'.repeat(40)),
+    '',
+    dim('   ' + earned + ' / ' + total + ' unlocked'),
+    '',
+  ];
+  ACHIEVEMENTS.forEach(a => {
+    const done = earnedAchievements.has(a.id);
+    lines.push((done ? sp('   ★ ', C.gold) : dim('   · ')) + (done ? wh(a.name) : dim(a.name)));
+    lines.push(dim('     ' + (done ? a.desc : '???')));
+    lines.push('');
+  });
+  lines.push(dim('   ESC back'));
+  screen.innerHTML = lines.join('\n');
+  clear();
+}
+
 function renderGameOver() {
   const blink = Math.floor(Date.now() / 500) % 2 === 0;
   screen.innerHTML = [
@@ -1304,6 +1404,11 @@ function renderRunSummary() {
     dim('   damage dealt: ' + RunStats.dmgDealt),
     dim('   accuracy:     ' + accuracy),
     dim('   time:         ' + timeStr),
+    ...((RunStats.newAchievements||[]).length > 0 ? [
+      '',
+      dim('   ── achievements unlocked ───────────'),
+      ...(RunStats.newAchievements||[]).map(a => sp('   ★ ' + a.name, C.gold)),
+    ] : []),
     '', '',
     blink ? dim('   PRESS ENTER TO RETURN') : '',
   ].join('\n');
@@ -1395,6 +1500,7 @@ function loop(t) {
     case 'rest':          renderRest();           break;
     case 'event':         renderEvent();          break;
     case 'run_summary':   renderRunSummary();     break;
+    case 'achievements':  renderAchievements();   break;
     case 'gameover':      renderGameOver();       break;
     case 'victory':       renderVictory();        break;
   }
