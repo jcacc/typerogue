@@ -833,7 +833,7 @@ function processKey(key) {
     return;
   }
   if (G.screen === 'achievements') {
-    if (key === 'Escape' || key === 'Enter') G.screen = 'title';
+    if (key === 'Escape' || key === 'Enter') G.screen = paused ? 'combat' : 'title';
     return;
   }
   if (G.screen === 'instructions') {
@@ -868,6 +868,7 @@ function processKey(key) {
     if (paused) {
       if (key === 'm' || key === 'M') RA.toggleMute();
       if (key === 'l' || key === 'L') { darkMode = !darkMode; applyTheme(); }
+      if (key === 'a' || key === 'A') { G.screen = 'achievements'; return; }
       if (key === 'q' || key === 'Q') { paused = false; RA.stopMusic(1); G.screen = 'title'; }
       return;
     }
@@ -1160,7 +1161,7 @@ function renderCombat() {
 
   if (flashTimer > 0) html += '\n\n' + sp(flashMsg, flashColor);
   if (achievementBanner && achievementBanner.timer > 0) html += '\n' + sp('★ ' + achievementBanner.name + ' ★', C.gold);
-  if (paused) html += '\n\n' + wh('[ PAUSED ]') + '    ' + dim('ESC resume  M mute  L theme  Q quit');
+  if (paused) html += '\n\n' + wh('[ PAUSED ]') + '    ' + dim('ESC resume  M mute  L theme  A achievements  Q quit');
 
   screen.innerHTML = html;
 
