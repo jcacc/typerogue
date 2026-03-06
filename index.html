@@ -829,11 +829,14 @@ function processKey(key) {
     if (key === 'Enter') { G.screen = 'class_select'; RA.startMusic('dungeon'); }
     if (key === 'l' || key === 'L') { darkMode = !darkMode; applyTheme(); }
     if (key === 'i' || key === 'I') { G.screen = 'instructions'; }
-    if (key === 'a' || key === 'A') { G.screen = 'achievements'; }
+    if (key === 'a' || key === 'A') { achievementsScroll = 0; G.screen = 'achievements'; }
     return;
   }
   if (G.screen === 'achievements') {
-    if (key === 'Escape' || key === 'Enter') G.screen = paused ? 'combat' : 'title';
+    const maxScroll = Math.max(0, ACHIEVEMENTS.length - ACHIEVEMENTS_PER_PAGE);
+    if (key === 'ArrowDown') achievementsScroll = Math.min(maxScroll, achievementsScroll + 1);
+    if (key === 'ArrowUp')   achievementsScroll = Math.max(0, achievementsScroll - 1);
+    if (key === 'Escape' || key === 'Enter') { achievementsScroll = 0; G.screen = paused ? 'combat' : 'title'; }
     return;
   }
   if (G.screen === 'instructions') {
@@ -868,7 +871,7 @@ function processKey(key) {
     if (paused) {
       if (key === 'm' || key === 'M') RA.toggleMute();
       if (key === 'l' || key === 'L') { darkMode = !darkMode; applyTheme(); }
-      if (key === 'a' || key === 'A') { G.screen = 'achievements'; return; }
+      if (key === 'a' || key === 'A') { achievementsScroll = 0; G.screen = 'achievements'; return; }
       if (key === 'q' || key === 'Q') { paused = false; RA.stopMusic(1); G.screen = 'title'; }
       return;
     }
@@ -1316,24 +1319,32 @@ function renderEvent() {
   clear();
 }
 
+let achievementsScroll = 0;
+const ACHIEVEMENTS_PER_PAGE = 5;
+
 function renderAchievements() {
   const total = ACHIEVEMENTS.length;
   const earned = earnedAchievements.size;
+  const maxScroll = Math.max(0, total - ACHIEVEMENTS_PER_PAGE);
+  const visible = ACHIEVEMENTS.slice(achievementsScroll, achievementsScroll + ACHIEVEMENTS_PER_PAGE);
+  const canUp = achievementsScroll > 0;
+  const canDown = achievementsScroll < maxScroll;
   const lines = [
     '',
-    wh('   ACHIEVEMENTS'),
+    wh('   ACHIEVEMENTS') + '                          ' + dim(earned + ' / ' + total + ' unlocked'),
     dim('   ' + '─'.repeat(40)),
     '',
-    dim('   ' + earned + ' / ' + total + ' unlocked'),
-    '',
+    canUp ? dim('   ↑') : '',
   ];
-  ACHIEVEMENTS.forEach(a => {
+  visible.forEach(a => {
     const done = earnedAchievements.has(a.id);
     lines.push((done ? sp('   ★ ', C.gold) : dim('   · ')) + (done ? wh(a.name) : dim(a.name)));
     lines.push(dim('     ' + (done ? a.desc : '???')));
     lines.push('');
   });
-  lines.push(dim('   ESC back'));
+  lines.push(canDown ? dim('   ↓') : '');
+  lines.push('');
+  lines.push(dim('   ↑ ↓ scroll    ESC back'));
   screen.innerHTML = lines.join('\n');
   clear();
 }
