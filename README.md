@@ -1,4 +1,10 @@
-# TYPEROGUE
+```
+ _____  __   __  ____   _____  ____    ___    ____  _   _  _____
+|_   _| \ \ / / |  _ \ | ____||  _ \  / _ \  / ___|| | | || ____|
+  | |    \ V /  | |_) ||  _|  | |_) || | | || |  _ | | | ||  _|
+  | |     | |   |  __/ | |___ |  _ < | |_| || |_| || |_| || |___
+  |_|     |_|   |_|    |_____||_| \_\ \___/  \____| \___/ |_____|
+```
 
 A typing roguelike inspired by Slay the Spire, Vampire Survivors and memories of typing in a terminal growing up. Type words to deal damage. Survive three floors.
 
