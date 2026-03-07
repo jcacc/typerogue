@@ -240,7 +240,7 @@ function className(id) { return stsMode ? (STS_NAMES[id] || id.toUpperCase()) : 
 let G = { screen:'title' };
 let titleTick = 0;
 let classSelectIdx = 0;
-const CLASS_IDS = ['warrior', 'rogue', 'mage', 'ranger', 'necromancer'];
+const CLASS_IDS = ['warrior', 'mage', 'rogue', 'ranger', 'necromancer'];
 
 let unlockedClasses = (() => {
   try {
@@ -255,7 +255,7 @@ function unlockClass(id) {
   try { localStorage.setItem('typerogue_unlocks', JSON.stringify([...unlockedClasses])); } catch {}
 }
 
-const CLASS_UNLOCKS = { warrior:'rogue', rogue:'mage', mage:'ranger', ranger:'necromancer' };
+const CLASS_UNLOCKS = { warrior:'mage', mage:'rogue', rogue:'ranger', ranger:'necromancer' };
 
 function checkClassUnlock() {
   const next = CLASS_UNLOCKS[P.classId];
@@ -1313,8 +1313,9 @@ function renderClassSelect() {
   const tabs = CLASS_IDS.map((id, i) => {
     const isSelected = i === classSelectIdx;
     const isLocked = !unlockedClasses.has(id);
-    if (isSelected) return wh('[ ' + (isLocked ? ' LOCKED ' : className(id)) + ' ]');
-    return isLocked ? dim('  [LOCKED]  ') : dim('  ' + className(id) + '  ');
+    const label = className(id) + (isLocked ? ' 🔒' : '');
+    if (isSelected) return (isLocked ? dim : wh)('[ ' + label + ' ]');
+    return dim('  ' + label + '  ');
   }).join('  ');
   const lines = [
     '',

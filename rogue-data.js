@@ -8,19 +8,19 @@ window.ROGUE_DATA = {
       id: 'warrior', name: 'WARRIOR', hp: 120, dmgMult: 1.0, wordSpeedMult: 1.0,
       startSpell: null, passive: 'iron_skin',
       desc: 'Iron Skin: +15 max HP. Balanced and resilient.',
-      color: '#74b9ff', icon: '⚔', unlocks: 'rogue',
+      color: '#74b9ff', icon: '⚔', unlocks: 'mage',
     },
     rogue: {
       id: 'rogue', name: 'ROGUE', hp: 65, dmgMult: 1.5, wordSpeedMult: 1.35,
       startSpell: null, passive: 'quick_draw',
       desc: 'Quick Draw: combo gauge fills faster. High risk, high reward.',
-      color: '#ff7675', icon: '🗡', unlocks: 'mage',
+      color: '#ff7675', icon: '🗡', unlocks: 'ranger',
     },
     mage: {
       id: 'mage', name: 'MAGE', hp: 85, dmgMult: 1.15, wordSpeedMult: 1.0,
       startSpell: 'freeze', passive: 'spell_amp',
       desc: 'Spell Amp: spells deal 50% more effect. Starts with Freeze.',
-      color: '#a29bfe', icon: '✦', unlocks: 'ranger',
+      color: '#a29bfe', icon: '✦', unlocks: 'rogue',
     },
     ranger: {
       id: 'ranger', name: 'RANGER', hp: 90, dmgMult: 1.0, wordSpeedMult: 1.05,
