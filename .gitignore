@@ -1,1 +1,3 @@
 .vercel
+leaderboard/node_modules
+leaderboard/scores.db

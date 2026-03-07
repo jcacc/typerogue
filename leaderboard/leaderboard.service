@@ -1,0 +1,16 @@
+[Unit]
+Description=TYPEROGUE Leaderboard API
+After=network.target
+
+[Service]
+Type=simple
+User=jca
+WorkingDirectory=/home/jca/leaderboard
+ExecStart=/usr/bin/node server.js
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
