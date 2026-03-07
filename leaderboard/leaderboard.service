@@ -6,6 +6,7 @@ After=network.target
 Type=simple
 User=jca
 WorkingDirectory=/home/jca/leaderboard
+Environment=LEADERBOARD_SECRET=383ca47fa8ed4ff2703d32ac8dde0dc2c115acf4d8dcc821
 ExecStart=/usr/bin/node server.js
 Restart=on-failure
 RestartSec=5

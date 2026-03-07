@@ -1,7 +1,19 @@
 'use strict';
 const express = require('express');
 const Database = require('better-sqlite3');
+const crypto = require('crypto');
 const path = require('path');
+
+const SECRET = process.env.LEADERBOARD_SECRET || '';
+if (!SECRET) { console.error('LEADERBOARD_SECRET env var not set — submissions will be rejected'); }
+
+function verifySignature(body) {
+  const { sig, name, score, class: cls, difficulty, floor, outcome } = body;
+  if (!sig) return false;
+  const msg = `${(name||'').trim().toUpperCase()}:${score}:${cls}:${difficulty}:${floor}:${outcome}`;
+  const expected = crypto.createHmac('sha256', SECRET).update(msg).digest('hex');
+  return crypto.timingSafeEqual(Buffer.from(sig, 'hex'), Buffer.from(expected, 'hex'));
+}
 
 const PORT = 3002;
 const DB_PATH = path.join(__dirname, 'scores.db');
@@ -63,7 +75,7 @@ app.post('/leaderboard', (req, res) => {
 
   if (!name || typeof name !== 'string' || !name.trim() || name.length > 20)
     return res.status(400).json({ error: 'Invalid name.' });
-  if (!Number.isInteger(score) || score < 0 || score > 9_999_999)
+  if (!Number.isInteger(score) || score < 0 || score > 999_999)
     return res.status(400).json({ error: 'Invalid score.' });
   if (!['warrior', 'rogue', 'mage'].includes(cls))
     return res.status(400).json({ error: 'Invalid class.' });
@@ -73,6 +85,10 @@ app.post('/leaderboard', (req, res) => {
     return res.status(400).json({ error: 'Invalid floor.' });
   if (!['victory', 'defeat'].includes(outcome))
     return res.status(400).json({ error: 'Invalid outcome.' });
+  if (outcome === 'victory' && floor !== 3)
+    return res.status(400).json({ error: 'Invalid floor for victory.' });
+  if (!verifySignature(req.body))
+    return res.status(403).json({ error: 'Invalid signature.' });
 
   lastSubmit.set(ip, now);
 

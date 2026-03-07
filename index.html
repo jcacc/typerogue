@@ -263,7 +263,18 @@ let nameEntry = '', nameEntrySubmitting = false, nameEntryError = '', nameEntryR
 let lbData = null, lbLoading = false, lbError = '';
 
 const LEADERBOARD_URL = 'https://trinacria.ddns.net/leaderboard';
+const LEADERBOARD_SECRET = '383ca47fa8ed4ff2703d32ac8dde0dc2c115acf4d8dcc821';
 const DIFF_MULT = { Beginner: 0.7, Normal: 1.0, Hard: 1.5 };
+
+async function signPayload(name, score, cls, difficulty, floor, outcome) {
+  const msg = `${name.trim().toUpperCase()}:${score}:${cls}:${difficulty}:${floor}:${outcome}`;
+  const key = await crypto.subtle.importKey(
+    'raw', new TextEncoder().encode(LEADERBOARD_SECRET),
+    { name:'HMAC', hash:'SHA-256' }, false, ['sign']
+  );
+  const buf = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(msg));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
 
 function calcScore() {
   const acc = RunStats.totalKeys > 0 ? RunStats.correctKeys / RunStats.totalKeys : 0;
@@ -290,13 +301,15 @@ async function submitScore() {
   const diffId = DIFFICULTIES[diffIdx] ? DIFFICULTIES[diffIdx].id : 'normal';
   const diffName = diffId.charAt(0).toUpperCase() + diffId.slice(1);
   const acc = RunStats.totalKeys > 0 ? Math.round(RunStats.correctKeys / RunStats.totalKeys * 1000) / 10 : 0;
+  const floor = Math.min(P.floor || 1, 3);
+  const outcome = G.runOutcome || 'defeat';
+  const score = calcScore();
+  const sig = await signPayload(name, score, P.classId, diffName, floor, outcome);
   const payload = {
-    name,
-    score: calcScore(),
+    name, score,
     class: P.classId,
     difficulty: diffName,
-    floor: Math.min(P.floor || 1, 3),
-    outcome: G.runOutcome || 'defeat',
+    floor, outcome, sig,
     dmg: RunStats.dmgDealt || 0,
     words: RunStats.wordsDestroyed || 0,
     accuracy: acc,
