@@ -266,7 +266,8 @@ const DIFF_MULT = { Beginner: 0.7, Normal: 1.0, Hard: 1.5 };
 
 function calcScore() {
   const acc = RunStats.totalKeys > 0 ? RunStats.correctKeys / RunStats.totalKeys : 0;
-  const diffName = DIFFICULTIES[diffIdx] ? DIFFICULTIES[diffIdx].name : 'Normal';
+  const diffId = DIFFICULTIES[diffIdx] ? DIFFICULTIES[diffIdx].id : 'normal';
+  const diffName = diffId.charAt(0).toUpperCase() + diffId.slice(1);
   const diffMult = DIFF_MULT[diffName] || 1.0;
   return Math.round(RunStats.dmgDealt * diffMult * Math.max(0.5, acc));
 }
@@ -285,7 +286,8 @@ async function submitScore() {
   nameEntrySubmitting = true;
   nameEntryError = '';
   const name = nameEntry.trim() || 'ANON';
-  const diffName = DIFFICULTIES[diffIdx] ? DIFFICULTIES[diffIdx].name : 'Normal';
+  const diffId = DIFFICULTIES[diffIdx] ? DIFFICULTIES[diffIdx].id : 'normal';
+  const diffName = diffId.charAt(0).toUpperCase() + diffId.slice(1);
   const acc = RunStats.totalKeys > 0 ? Math.round(RunStats.correctKeys / RunStats.totalKeys * 1000) / 10 : 0;
   const payload = {
     name,
@@ -1600,7 +1602,8 @@ function renderVictory() {
 
 function renderNameEntry() {
   const score = calcScore();
-  const diffName = DIFFICULTIES[diffIdx] ? DIFFICULTIES[diffIdx].name : 'Normal';
+  const diffId = DIFFICULTIES[diffIdx] ? DIFFICULTIES[diffIdx].id : 'normal';
+  const diffName = diffId.charAt(0).toUpperCase() + diffId.slice(1);
   const outcome = G.runOutcome === 'victory' ? sp('VICTORY', C.gold) : sp('DEFEATED', C.red);
   const cursor = Math.floor(Date.now() / 400) % 2 === 0 ? '_' : ' ';
   const lines = [
