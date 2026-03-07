@@ -32,7 +32,7 @@ window.ROGUE_DATA = {
       hp: 60, wordSpeed: 26, wordInterval: 2200, attackInterval: 9000, attackDmg: 8,
       wordTiers: [0, 1], loot: { gold: 15 }, phases: [],
       color: '#55efc4', bodyColor: '#27ae60', eyeColor: '#e74c3c',
-      size: 18, emoji: '👺',
+     
       portrait: [
         '╔══════════╗',
         '║  /\\  /\\  ║',
@@ -47,7 +47,7 @@ window.ROGUE_DATA = {
       hp: 120, wordSpeed: 20, wordInterval: 3200, attackInterval: 6000, attackDmg: 18,
       wordTiers: [1, 2], loot: { gold: 25 }, phases: [],
       color: '#b2bec3', bodyColor: '#636e72', eyeColor: '#fdcb6e',
-      size: 28, emoji: '👹',
+     
       portrait: [
         '╔══════════╗',
         '║  (O  O)  ║',
@@ -62,7 +62,7 @@ window.ROGUE_DATA = {
       hp: 90, wordSpeed: 30, wordInterval: 2400, attackInterval: 5500, attackDmg: 12,
       wordTiers: [1, 2], loot: { gold: 45 }, phases: [],
       color: '#a29bfe', bodyColor: '#6c5ce7', eyeColor: '#fd79a8',
-      size: 22, emoji: '📜',
+     
       portrait: [
         '╔══════════╗',
         '║ .------. ║',
@@ -78,7 +78,7 @@ window.ROGUE_DATA = {
       wordTiers: [0, 1, 2], loot: { gold: 80 },
       phases: [{ hpThreshold: 0.5, speedMult: 1.4, intervalMult: 0.7, announce: 'ENRAGED!' }],
       color: '#fdcb6e', bodyColor: '#e17055', eyeColor: '#d63031',
-      size: 34, emoji: '👑',
+     
       portrait: [
         '╔══════════╗',
         '║ /\\/\\/\\/\\ ║',
@@ -93,7 +93,7 @@ window.ROGUE_DATA = {
       hp: 40, wordSpeed: 32, wordInterval: 1900, attackInterval: 9500, attackDmg: 6,
       wordTiers: [0, 1], loot: { gold: 10 }, phases: [],
       color: '#b2bec3', bodyColor: '#636e72', eyeColor: '#e74c3c',
-      size: 14, emoji: '🐀',
+     
       portrait: [
         '╔══════════╗',
         '║  /\\_/\\   ║',
@@ -108,7 +108,7 @@ window.ROGUE_DATA = {
       hp: 70, wordSpeed: 22, wordInterval: 2800, attackInterval: 7500, attackDmg: 11,
       wordTiers: [1, 2], loot: { gold: 18 }, phases: [],
       color: '#a29bfe', bodyColor: '#6c5ce7', eyeColor: '#55efc4',
-      size: 18, emoji: '🧙',
+     
       portrait: [
         '╔══════════╗',
         '║   /^\\    ║',
@@ -125,7 +125,7 @@ window.ROGUE_DATA = {
       hp: 100, wordSpeed: 36, wordInterval: 2000, attackInterval: 7000, attackDmg: 14,
       wordTiers: [1, 2], loot: { gold: 30 }, phases: [],
       color: '#636e72', bodyColor: '#2d3436', eyeColor: '#74b9ff',
-      size: 20, emoji: '🏹',
+     
       portrait: [
         '╔══════════╗',
         '║  __|__   ║',
@@ -140,7 +140,7 @@ window.ROGUE_DATA = {
       hp: 80, wordSpeed: 33, wordInterval: 2400, attackInterval: 6500, attackDmg: 12,
       wordTiers: [1, 2], loot: { gold: 30 }, phases: [], special: 'invisible',
       color: '#6c5ce7', bodyColor: '#4a0080', eyeColor: '#dfe6e9',
-      size: 22, emoji: '👻',
+     
       portrait: [
         '╔══════════╗',
         '║  ~~~~~   ║',
@@ -155,7 +155,7 @@ window.ROGUE_DATA = {
       hp: 140, wordSpeed: 28, wordInterval: 2600, attackInterval: 4500, attackDmg: 20,
       wordTiers: [2, 3], loot: { gold: 60 }, phases: [],
       color: '#dfe6e9', bodyColor: '#b2bec3', eyeColor: '#00cec9',
-      size: 24, emoji: '💀',
+     
       portrait: [
         '╔══════════╗',
         '║  _   _   ║',
@@ -174,7 +174,7 @@ window.ROGUE_DATA = {
         { hpThreshold: 0.33, speedMult: 1.45, intervalMult: 0.65, announce: 'UNDEATH RISES!' },
       ],
       color: '#a29bfe', bodyColor: '#341f97', eyeColor: '#00cec9',
-      size: 36, emoji: '🧟',
+     
       portrait: [
         '╔══════════╗',
         '║  /|_|\\   ║',
@@ -189,7 +189,7 @@ window.ROGUE_DATA = {
       hp: 115, wordSpeed: 28, wordInterval: 2500, attackInterval: 7000, attackDmg: 17,
       wordTiers: [1, 2], loot: { gold: 33 }, phases: [],
       color: '#55efc4', bodyColor: '#00b894', eyeColor: '#fdcb6e',
-      size: 22, emoji: '⚗️',
+     
       portrait: [
         '╔══════════╗',
         '║  [   ]   ║',
@@ -204,7 +204,7 @@ window.ROGUE_DATA = {
       hp: 75, wordSpeed: 40, wordInterval: 2100, attackInterval: 7500, attackDmg: 12,
       wordTiers: [1, 2], loot: { gold: 28 }, phases: [],
       color: '#dfe6e9', bodyColor: '#b2bec3', eyeColor: '#74b9ff',
-      size: 18, emoji: '🐺',
+     
       portrait: [
         '╔══════════╗',
         '║  /\\_/\\   ║',
@@ -221,7 +221,7 @@ window.ROGUE_DATA = {
       hp: 160, wordSpeed: 40, wordInterval: 2200, attackInterval: 5500, attackDmg: 20,
       wordTiers: [2, 3], loot: { gold: 45 }, phases: [],
       color: '#74b9ff', bodyColor: '#0984e3', eyeColor: '#fdcb6e',
-      size: 24, emoji: '⚔️',
+     
       portrait: [
         '╔══════════╗',
         '║  [###]   ║',
@@ -236,7 +236,7 @@ window.ROGUE_DATA = {
       hp: 130, wordSpeed: 42, wordInterval: 2000, attackInterval: 5000, attackDmg: 18,
       wordTiers: [2, 3], loot: { gold: 45 }, phases: [], special: 'scramble',
       color: '#e17055', bodyColor: '#c0392b', eyeColor: '#a29bfe',
-      size: 22, emoji: '🔮',
+     
       portrait: [
         '╔══════════╗',
         '║  _/^\\_   ║',
@@ -255,7 +255,7 @@ window.ROGUE_DATA = {
         { hpThreshold: 0.33, speedMult: 1.55, intervalMult: 0.60, announce: 'ANNIHILATE!!' },
       ],
       color: '#fd79a8', bodyColor: '#6d214f', eyeColor: '#ffd700',
-      size: 40, emoji: '👾',
+     
       portrait: [
         '╔══════════╗',
         '║/\\/\\/\\/\\/\\║',
@@ -270,7 +270,7 @@ window.ROGUE_DATA = {
       hp: 210, wordSpeed: 30, wordInterval: 2900, attackInterval: 5800, attackDmg: 26,
       wordTiers: [2, 3], loot: { gold: 50 }, phases: [],
       color: '#b2bec3', bodyColor: '#636e72', eyeColor: '#ffd700',
-      size: 28, emoji: '🤖',
+     
       portrait: [
         '╔══════════╗',
         '║ [######] ║',
@@ -285,7 +285,7 @@ window.ROGUE_DATA = {
       hp: 145, wordSpeed: 44, wordInterval: 2100, attackInterval: 5200, attackDmg: 22,
       wordTiers: [2, 3], loot: { gold: 48 }, phases: [],
       color: '#e17055', bodyColor: '#d63031', eyeColor: '#fdcb6e',
-      size: 20, emoji: '🔥',
+     
       portrait: [
         '╔══════════╗',
         '║  )\\ /(   ║',
