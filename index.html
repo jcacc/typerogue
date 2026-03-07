@@ -946,7 +946,7 @@ function setupShop(nodeIdx) {
   });
   const pool = [...available].sort(() => Math.random() - 0.5).slice(0, 3);
   G.shopItems = pool.map(u => {
-    const cost = u.rarity==='epic'?80 : u.rarity==='rare'?55 : u.rarity==='uncommon'?35 : 20;
+    const cost = u.rarity==='epic'?100 : u.rarity==='rare'?69 : u.rarity==='uncommon'?44 : 25;
     return { upgrade:u, cost, owned:false };
   });
   G.shopIdx = 0; G.shopNodeIdx = nodeIdx;
