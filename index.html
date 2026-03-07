@@ -494,6 +494,7 @@ function initCombat(enemyId) {
   floats = [];
   comboCount = 0; comboTime = 0;
   paused = false;
+  if (P.combatShield) P.shield = (P.shield || 0) + P.combatShield;
   if (eData.type === 'boss') RA.setTheme('boss');
   G.screen = 'combat';
 }
@@ -713,7 +714,8 @@ function destroyWord(idx) {
   let dmg = Math.ceil(w.text.length * P.dmgMult);
   if (P.longshot && w.text.length >= 8) dmg *= 3;
   if (P.upgrades && P.upgrades.includes('dk_chaos')) dmg *= 2;
-  if (P.berserk && P.hp < P.maxHp * 0.3) dmg = Math.ceil(dmg * 1.75);
+  if (P.berserk  && P.hp < P.maxHp * 0.3) dmg = Math.ceil(dmg * 1.75);
+  if (P.warAxe   && P.hp < P.maxHp * 0.4) dmg = Math.ceil(dmg * 2.0);
 
   // ── Combo ──
   const cWindow = P.classId === 'rogue' ? 2000 : COMBO_WINDOW;
@@ -754,9 +756,10 @@ function destroyWord(idx) {
   const floatLabel = (cMult > 1.0 ? `-${dmg} ×${cMult}` : `-${dmg}`) + extraLabel;
   spawnFloat(w.x, w.y - 20, floatLabel, C.gold);
 
-  if (P.vampiric) {
-    P.hp = Math.min(P.maxHp, P.hp + 2);
-    spawnFloat(W/2 + 20, WORD_EXIT_Y - 20, '+2', C.txt);
+  const vheal = (P.vampiric ? 2 : 0) + (P.vampiricEdge ? 4 : 0);
+  if (vheal > 0) {
+    P.hp = Math.min(P.maxHp, P.hp + vheal);
+    spawnFloat(W/2 + 20, WORD_EXIT_Y - 20, `+${vheal}`, C.txt);
   }
   if (leechTimer > 0) {
     const lheal = w.text.length * ((P.spellStacks && P.spellStacks['leech']) || 1);
@@ -779,7 +782,7 @@ function activateSpell(spellIdx) {
   const stacks = (P.spellStacks && P.spellStacks[spellName]) || 1;
   const stackMult = stacks >= 3 ? 2.0 : stacks >= 2 ? 1.5 : 1.0;
   const totalAmp = amp * stackMult;
-  P.spellCDs[spellIdx] = upg.cd;
+  P.spellCDs[spellIdx] = Math.round(upg.cd * (P.spellCDMult || 1));
   RA.playSpellCast();
   switch (spellName) {
     case 'freeze':  freezeTimer = Math.max(freezeTimer, 0) + 3000 * totalAmp; spawnFloat(W/2, 160, 'FREEZE!', C.blue); break;
@@ -864,7 +867,7 @@ function activateSpell(spellIdx) {
 
 // ── Upgrades ───────────────────────────────────────────────────────────────────
 function pickUpgrades(count) {
-  const pool = [...RD.upgrades].sort(() => Math.random() - 0.5);
+  const pool = [...RD.upgrades].filter(u => u.type !== 'gear').sort(() => Math.random() - 0.5);
   const result = [], usedTypes = new Set();
   for (const u of pool) {
     if (result.length >= count) break;
@@ -892,6 +895,10 @@ function applyUpgrade(upg) {
   if (e.longshot)     P.longshot = true;
   if (e.deathless)    P.deathless = true;
   if (e.chaos)        P.dmgMult *= 2;
+  if (e.warAxe)       P.warAxe = true;
+  if (e.vampiricEdge) P.vampiricEdge = true;
+  if (e.combatShield) P.combatShield = (P.combatShield || 0) + e.combatShield;
+  if (e.spellCDMult)  P.spellCDMult = (P.spellCDMult || 1) * e.spellCDMult;
   if (upg.type === 'spell' && upg.spell) {
     if (!P.spells) { P.spells = []; P.spellCDs = []; }
     if (!P.spellStacks) P.spellStacks = {};
@@ -910,6 +917,7 @@ function startRun(classId) {
     dmgMult:cls.dmgMult, wordSpeedMult:cls.wordSpeedMult,
     gold:DIFFICULTIES[diffIdx].startGold, floor:1, kills:0, spells:[], spellCDs:[], spellStacks:{}, upgrades:[],
     berserk:false, vampiric:false, longshot:false, deathless:false,
+    warAxe:false, vampiricEdge:false, combatShield:0, spellCDMult:1.0,
     shield:0, regenPerRoom:0, spellAmp:classId==='mage',
   };
   if (cls.startSpell) { P.spells.push(cls.startSpell); P.spellCDs.push(0); P.spellStacks[cls.startSpell] = 1; }
@@ -946,7 +954,7 @@ function setupShop(nodeIdx) {
   });
   const pool = [...available].sort(() => Math.random() - 0.5).slice(0, 3);
   G.shopItems = pool.map(u => {
-    const cost = u.rarity==='epic'?100 : u.rarity==='rare'?69 : u.rarity==='uncommon'?44 : 25;
+    const cost = u.price || (u.rarity==='epic'?100 : u.rarity==='rare'?69 : u.rarity==='uncommon'?44 : 25);
     return { upgrade:u, cost, owned:false };
   });
   G.shopIdx = 0; G.shopNodeIdx = nodeIdx;
@@ -973,8 +981,8 @@ function applyEventOption(opt) {
   if (opt.cost && opt.cost.maxHp) { P.maxHp -= opt.cost.maxHp; P.hp = Math.min(P.hp, P.maxHp); }
   switch (opt.action) {
     case 'random_upgrade': {
-      const available = RD.upgrades.filter(u => !P.upgrades.includes(u.id));
-      const pick = rnd(available.length ? available : RD.upgrades);
+      const available = RD.upgrades.filter(u => u.type !== 'gear' && !P.upgrades.includes(u.id));
+      const pick = rnd(available.length ? available : RD.upgrades.filter(u => u.type !== 'gear'));
       if (pick) { applyUpgrade(pick); RA.playUpgradePick(); return 'Received: ' + pick.name; }
       return 'No upgrades available.';
     }
@@ -1437,7 +1445,7 @@ function renderUpgrade() {
   upgradeOptions.forEach((u, i) => {
     const sel = !upgradeChosen && i === upgradeSelIdx;
     const rarCol = RD.rarityColor[u.rarity] || C.txt;
-    const typeIcon = { passive:'=', spell:'*', deck:'~' }[u.type] || '?';
+    const typeIcon = { passive:'=', spell:'*', deck:'~', gear:'+' }[u.type] || '?';
     const prefix = sel ? '>' : ' ';
     lines.push(sp(prefix + ' [' + (i+1) + '] ' + typeIcon + ' ' + u.name, sel ? C.white : rarCol));
     lines.push(dim('      ' + u.rarity + ' ' + u.type));
