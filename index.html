@@ -232,9 +232,9 @@ const DIFFICULTIES = [
   { id:'hard',     label:'HARD',     wordSpeed:1.35, interval:0.75, attackInterval:0.75, enemyHp:1.3,  attackDmg:1.5, startHpMult:0.85, startGold:15, maxWords:14 },
 ];
 let diffIdx = 1; // default: normal
-let stsMode = false;
-const STS_NAMES = { warrior:'IRONCLAD', rogue:'SILENT', mage:'DEFECT' };
-function className(id) { return stsMode ? (STS_NAMES[id] || id.toUpperCase()) : (RD.classes[id]?.name || id.toUpperCase()); }
+// let stsMode = false;
+// const STS_NAMES = { warrior:'IRONCLAD', rogue:'SILENT', mage:'DEFECT' };
+function className(id) { return RD.classes[id]?.name || id.toUpperCase(); }
 
 // ── State ──────────────────────────────────────────────────────────────────────
 let G = { screen:'title' };
@@ -1117,7 +1117,7 @@ function processKey(key) {
       do { next = (next + 1) % CLASS_IDS.length; } while (!unlockedClasses.has(CLASS_IDS[next]) && next !== classSelectIdx);
       classSelectIdx = next; classSelectMsg = '';
     }
-    if (key === 's' || key === 'S') stsMode = !stsMode;
+    // if (key === 's' || key === 'S') stsMode = !stsMode;
     if (key === 'Enter') {
       if (!unlockedClasses.has(CLASS_IDS[classSelectIdx])) {
         const prevId = CLASS_IDS[CLASS_IDS.indexOf(CLASS_IDS[classSelectIdx]) - 1];
@@ -1344,7 +1344,7 @@ function renderClassSelect() {
   lines.push('', '');
   if (classSelectMsg) lines.push(sp('   ' + classSelectMsg, C.red));
   else lines.push('');
-  lines.push(dim('   <- -> select    ENTER confirm    [S] ' + (stsMode ? 'STS mode ON' : 'STS mode')));
+  lines.push(dim('   <- -> select    ENTER confirm'));
   screen.innerHTML = lines.join('\n');
   clear();
 }
