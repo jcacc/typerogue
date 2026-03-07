@@ -836,6 +836,7 @@ function activateSpell(spellIdx) {
         .filter(w => !w.isAttack && !w.isPickup)
         .sort((a, b) => a.text.length - b.text.length)
         .slice(0, vcount);
+      const activeWord = activeWordIdx >= 0 ? words[activeWordIdx] : null;
       let vtotal = 0;
       for (const t of targets) {
         const vd = Math.ceil(t.text.length * P.dmgMult * amp);
@@ -846,7 +847,8 @@ function activateSpell(spellIdx) {
         if (vi >= 0) { words.splice(vi, 1); if (activeWordIdx >= vi) activeWordIdx = Math.max(-1, activeWordIdx - 1); }
       }
       RunStats.dmgDealt += vtotal;
-      typed = ''; updateActiveWord();
+      if (!activeWord || !words.includes(activeWord)) { typed = ''; }
+      updateActiveWord();
       spawnFloat(W/2, 160, `VOLLEY! ×${targets.length}`, C.hi);
       break;
     }
