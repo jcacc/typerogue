@@ -258,6 +258,7 @@ let floats = [];
 let paused = false;
 let RunStats = {};
 let titleParticles = [];
+let codexScroll = 0;
 let nameEntry = '', nameEntrySubmitting = false, nameEntryError = '', nameEntryRank = null;
 let lbData = null, lbLoading = false, lbError = '';
 
@@ -1011,6 +1012,15 @@ function processKey(key) {
     if (key === 'i' || key === 'I') { G.screen = 'instructions'; }
     if (key === 'a' || key === 'A') { achievementsScroll = 0; G.screen = 'achievements'; }
     if (key === 'g' || key === 'G') { G.screen = 'leaderboard'; fetchLeaderboard(); }
+    if (key === 'c' || key === 'C') { codexScroll = 0; G.screen = 'codex'; }
+    return;
+  }
+  if (G.screen === 'codex') {
+    const spells = RD.upgrades.filter(u => u.type === 'spell');
+    const maxScroll = Math.max(0, spells.length - 6);
+    if (key === 'ArrowDown') codexScroll = Math.min(maxScroll, codexScroll + 1);
+    if (key === 'ArrowUp')   codexScroll = Math.max(0, codexScroll - 1);
+    if (key === 'Escape' || key === 'Enter') { codexScroll = 0; G.screen = paused ? 'combat' : 'title'; }
     return;
   }
   if (G.screen === 'leaderboard') {
@@ -1070,6 +1080,7 @@ function processKey(key) {
       if (key === 'm' || key === 'M') RA.toggleMute();
       if (key === 'l' || key === 'L') { darkMode = !darkMode; applyTheme(); }
       if (key === 'a' || key === 'A') { achievementsScroll = 0; G.screen = 'achievements'; return; }
+      if (key === 'c' || key === 'C') { codexScroll = 0; G.screen = 'codex'; return; }
       if (key === 'q' || key === 'Q') { paused = false; RA.stopMusic(1); G.screen = 'title'; }
       return;
     }
@@ -1188,7 +1199,7 @@ function renderTitle() {
   if (!titleParticles.length) initTitleParticles();
   const blink = Math.floor(titleTick / 35) % 2 === 0;
   titleTick++;
-  const footer = '[I] instructions  ·  [A] achievements  ·  [G] rankings  ·  [L] ' + (darkMode ? 'light mode' : 'dark mode') + '  ·  by joe accardi';
+  const footer = '[I] instructions  ·  [A] achievements  ·  [C] codex  ·  [G] rankings  ·  [L] ' + (darkMode ? 'light mode' : 'dark mode') + '  ·  by joe accardi';
   const instr1 = 'type words to destroy enemies  —  survive all 3 floors';
   const instr2 = '<- -> class  ·  1-3 spells  ·  ESC pause';
   const best = bestRunLine();
@@ -1375,7 +1386,7 @@ function renderCombat() {
 
   if (flashTimer > 0) html += '\n\n' + sp(flashMsg, flashColor);
   if (achievementBanner && achievementBanner.timer > 0) html += '\n' + sp('★ ' + achievementBanner.name + ' ★', C.gold);
-  if (paused) html += '\n\n' + wh('[ PAUSED ]') + '    ' + dim('ESC resume  M mute  L theme  A achievements  Q quit');
+  if (paused) html += '\n\n' + wh('[ PAUSED ]') + '    ' + dim('ESC resume  M mute  L theme  A achievements  C codex  Q quit');
 
   screen.innerHTML = html;
 
@@ -1600,6 +1611,30 @@ function renderVictory() {
   clear();
 }
 
+function renderCodex() {
+  const spells = RD.upgrades.filter(u => u.type === 'spell');
+  const visible = spells.slice(codexScroll, codexScroll + 6);
+  const lines = [
+    '',
+    wh('   SPELL CODEX') + '   ' + dim((codexScroll + 1) + '–' + Math.min(codexScroll + 6, spells.length) + ' of ' + spells.length),
+    dim('   spells can be acquired up to Lv3  ·  Lv2 = ×1.5 effect  ·  Lv3 = ×2.0 effect'),
+    dim('   ' + '─'.repeat(70)),
+    '',
+  ];
+  visible.forEach(u => {
+    const rarCol = RD.rarityColor[u.rarity] || C.txt;
+    const cdSec = (u.cd / 1000).toFixed(0) + 's';
+    lines.push(sp('   ' + u.name, rarCol) + '   ' + dim(u.rarity + '  ·  CD: ' + cdSec));
+    lines.push('   ' + sp(u.desc.replace(/\s*\(CD:[^)]+\)/, ''), C.txt));
+    lines.push('');
+  });
+  while (lines.length < 20) lines.push('');
+  lines.push(dim('   ' + '─'.repeat(70)));
+  lines.push(dim('   ^ v scroll    ESC back'));
+  screen.innerHTML = lines.join('\n');
+  clear();
+}
+
 function renderNameEntry() {
   const score = calcScore();
   const diffId = DIFFICULTIES[diffIdx] ? DIFFICULTIES[diffIdx].id : 'normal';
@@ -1809,6 +1844,7 @@ function loop(t) {
     case 'shop':          renderShop();           break;
     case 'rest':          renderRest();           break;
     case 'event':         renderEvent();          break;
+    case 'codex':         renderCodex();          break;
     case 'name_entry':    renderNameEntry();      break;
     case 'leaderboard':   renderLeaderboard();    break;
     case 'run_summary':   renderRunSummary();     break;
