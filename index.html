@@ -258,7 +258,7 @@ let floats = [];
 let paused = false;
 let RunStats = {};
 let titleParticles = [];
-let codexScroll = 0;
+let codexScroll = 0, instructionsScroll = 0;
 let nameEntry = '', nameEntrySubmitting = false, nameEntryError = '', nameEntryRank = null;
 let lbData = null, lbLoading = false, lbError = '';
 
@@ -1019,7 +1019,7 @@ function processKey(key) {
   if (G.screen === 'title') {
     if (key === 'Enter') { G.screen = 'class_select'; RA.startMusic('dungeon'); }
     if (key === 'l' || key === 'L') { darkMode = !darkMode; applyTheme(); }
-    if (key === 'i' || key === 'I') { G.screen = 'instructions'; }
+    if (key === 'i' || key === 'I') { instructionsScroll = 0; G.screen = 'instructions'; }
     if (key === 'a' || key === 'A') { achievementsScroll = 0; G.screen = 'achievements'; }
     if (key === 'g' || key === 'G') { G.screen = 'leaderboard'; fetchLeaderboard(); }
     if (key === 'c' || key === 'C') { codexScroll = 0; G.screen = 'codex'; }
@@ -1058,7 +1058,12 @@ function processKey(key) {
     return;
   }
   if (G.screen === 'instructions') {
-    if (key === 'Escape') { G.screen = 'title'; }
+    const INSTR_PAGE = 22;
+    const totalLines = 37; // keep in sync with renderInstructions line count
+    const maxScroll = Math.max(0, totalLines - INSTR_PAGE);
+    if (key === 'ArrowDown') instructionsScroll = Math.min(maxScroll, instructionsScroll + 1);
+    if (key === 'ArrowUp')   instructionsScroll = Math.max(0, instructionsScroll - 1);
+    if (key === 'Escape' || key === 'Enter') { instructionsScroll = 0; G.screen = 'title'; }
     return;
   }
   if (G.screen === 'class_select') {
@@ -1786,8 +1791,8 @@ function renderDifficultySelect() {
 }
 
 function renderInstructions() {
-  screen.innerHTML = [
-    '',
+  const INSTR_PAGE = 22;
+  const all = [
     wh('   HOW TO PLAY'),
     dim('   ' + '─'.repeat(40)),
     '',
@@ -1808,7 +1813,7 @@ function renderInstructions() {
     dim('   blast   — heavy single hit'),
     dim('   echo    — repeat last destroyed word\'s damage for free'),
     dim('   slow    — words crawl at 20% speed for 4s'),
-    dim('   reave   — next word dealt 3× damage'),
+    dim('   reave   — next word deals 3× damage'),
     dim('   ward    — block all enemy attacks for 5s'),
     dim('   mark    — highlight one word; destroying it deals 5× dmg'),
     dim('   leech   — heal 1 HP per letter typed for 10s'),
@@ -1825,14 +1830,13 @@ function renderInstructions() {
     dim('   <- -> navigate nodes,  ENTER to enter'),
     dim('   combat → elite → boss per floor  (3 floors total)'),
     dim('   ? event nodes: random encounters with choices and consequences'),
-    dim('   shop: spend gold on upgrades'),
+    dim('   shop: spend gold on upgrades and gear'),
     dim('   rest: restore 35% hp'),
     dim('   normal: 2 branches  ·  hard: 3 branches'),
-    '',
-    dim('   ESC  pause / back'),
-    '', '',
-    dim('   [ESC] close'),
-  ].join('\n');
+  ]; // 37 lines — keep totalLines in processKey in sync
+  const visible = all.slice(instructionsScroll, instructionsScroll + INSTR_PAGE);
+  const atBottom = instructionsScroll + INSTR_PAGE >= all.length;
+  screen.innerHTML = ['', ...visible, '', dim('   ' + '─'.repeat(40)), dim('   ^ v scroll    ESC close' + (atBottom ? '' : '  (more below)'))].join('\n');
   clear();
 }
 
