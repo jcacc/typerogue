@@ -8,7 +8,7 @@
 
 A typing roguelike inspired by Slay the Spire, Vampire Survivors and memories of typing in a terminal growing up. Type words to deal damage. Survive three floors.
 
-**v0.6** — [play on Vercel](https://typerogue.vercel.app) · [global leaderboard](https://trinacria.ddns.net/leaderboard)
+**v0.7** — [play](https://typerogue.xyz) · [global leaderboard](https://trinacria.ddns.net/leaderboard)
 
 ## How to play
 
@@ -32,11 +32,15 @@ Open `index.html` in a browser, or play the hosted version linked above. No buil
 
 ## Classes
 
-| Class | HP | Damage | Notes |
-|-------|----|--------|-------|
-| Warrior | 135 | 1.0× | Iron Skin passive — resilient |
-| Rogue | 65 | 1.5× | Quick Draw — words come faster, wider combo window |
-| Mage | 85 | 1.15× | Spell Amp — starts with Freeze, spells deal 50% more |
+Classes unlock in sequence by completing a run (win or lose) with the previous class.
+
+| Class | HP | Damage | Notes | Unlock |
+|-------|----|--------|-------|--------|
+| Warrior | 135 | 1.0× | Iron Skin — +15 max HP, resilient | Default |
+| Mage | 85 | 1.15× | Spell Amp — starts with Freeze, spells deal 50% more | Beat a run as Warrior |
+| Rogue | 65 | 1.5× | Quick Draw — words come faster, wider combo window | Beat a run as Mage |
+| Ranger | — | 1.0× | Word Mastery — words 6+ letters deal 1.75× damage | Beat a run as Rogue |
+| Necromancer | — | 1.0× | Dark Absorb — destroying attack words deals 2× and heals 6 HP | Beat a run as Ranger |
 
 ## Structure
 
