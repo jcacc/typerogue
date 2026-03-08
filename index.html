@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>TYPEROGUE</title>
+  <script defer src="/_vercel/insights/script.js"></script>
   <style>
     * { margin:0; padding:0; box-sizing:border-box; }
     body { background:#f8f5f0; display:flex; justify-content:center; align-items:center; height:100vh; overflow:hidden; }
@@ -93,6 +94,10 @@
 <script src="rogue-data.js"></script>
 <script>
 'use strict';
+
+function track(name, data) {
+  try { window.va?.('event', { name, data }); } catch {}
+}
 
 const RD = window.ROGUE_DATA;
 const VERSION = 'v0.7 · 2026-03-07';
@@ -629,7 +634,7 @@ function updateCombat(dt) {
     if (P.deathless && !P.deathlessUsed) {
       P.hp = 1; P.deathlessUsed = true;
       flashMsg = 'DEATHLESS!'; flashColor = '#993366'; flashTimer = 1500;
-    } else { RA.playGameOver(); RA.stopMusic(1.5); G.runOutcome = 'defeat'; RunStats.endTime = Date.now(); checkRunAchievements(); checkClassUnlock(); saveBestRun('defeat'); runSummaryScroll = 0; beginNameEntry(); return; }
+    } else { RA.playGameOver(); RA.stopMusic(1.5); G.runOutcome = 'defeat'; RunStats.endTime = Date.now(); checkRunAchievements(); checkClassUnlock(); saveBestRun('defeat'); track('run_end', { outcome: 'defeat', class: P.classId, floor: P.floor || 1, difficulty: DIFFICULTIES[diffIdx].id }); runSummaryScroll = 0; beginNameEntry(); return; }
   }
 
   if (enemy.hp <= 0) {
@@ -647,7 +652,7 @@ function updateCombat(dt) {
 
     upgradeOptions = pickUpgrades(3); upgradeChosen = false; upgradeSelIdx = 0;
     if (enemy.type === 'boss') {
-      if (enemy.id === 'tyrant_prime') { G.runOutcome = 'victory'; RunStats.endTime = Date.now(); checkRunAchievements(); checkClassUnlock(); saveBestRun('victory'); runSummaryScroll = 0; RA.playVictory(); RA.stopMusic(2); beginNameEntry(); return; }
+      if (enemy.id === 'tyrant_prime') { G.runOutcome = 'victory'; RunStats.endTime = Date.now(); checkRunAchievements(); checkClassUnlock(); saveBestRun('victory'); track('run_end', { outcome: 'victory', class: P.classId, floor: P.floor || 3, difficulty: DIFFICULTIES[diffIdx].id }); runSummaryScroll = 0; RA.playVictory(); RA.stopMusic(2); beginNameEntry(); return; }
       P.floor = (P.floor || 1) + 1;
       RA.setTheme('dungeon'); G.screen = 'combat_result';
     } else {
@@ -962,6 +967,7 @@ function startRun(classId) {
   };
   if (cls.startSpell) { P.spells.push(cls.startSpell); P.spellCDs.push(0); P.spellStacks[cls.startSpell] = 1; }
   RunStats = { wordsDestroyed:0, dmgDealt:0, totalKeys:0, correctKeys:0, startTime:Date.now(), goldEarned:0, newAchievements:[] };
+  track('run_start', { class: classId, difficulty: DIFFICULTIES[diffIdx].id });
   buildMap(); RA.setTheme('dungeon'); G.screen = 'map';
 }
 
