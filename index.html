@@ -288,13 +288,71 @@ let titleParticles = [];
 let codexScroll = 0, instructionsScroll = 0;
 let nameEntry = '', nameEntrySubmitting = false, nameEntryError = '', nameEntryRank = null;
 let lbData = null, lbLoading = false, lbError = '';
+let lbTab = 'classic'; // 'classic' | 'daily'
+let lbDailyData = null, lbDailyLoading = false, lbDailyError = '';
+let dailyMode = false, dailyConfig = null, dailyDate = '';
 
 const LEADERBOARD_URL = 'https://trinacria.ddns.net/leaderboard';
 const LEADERBOARD_SECRET = '383ca47fa8ed4ff2703d32ac8dde0dc2c115acf4d8dcc821';
 const DIFF_MULT = { Beginner: 0.7, Normal: 1.0, Hard: 1.5 };
 
-async function signPayload(name, score, cls, difficulty, floor, outcome) {
-  const msg = `${name.trim().toUpperCase()}:${score}:${cls}:${difficulty}:${floor}:${outcome}`;
+// ── Daily challenge ────────────────────────────────────────────────────────────
+function mulberry32(seed) {
+  return function() {
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function dailyDateStr() { return new Date().toISOString().slice(0, 10); }
+function seedFromDate(s) {
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) | 0;
+  return h >>> 0;
+}
+const DAILY_MODIFIERS = [
+  { id:'short_words', label:'SHORT WORDS', desc:'max 5-letter words'  },
+  { id:'long_words',  label:'LONG WORDS',  desc:'min 6-letter words'  },
+  { id:'fragile',     label:'FRAGILE',     desc:'50% max HP'          },
+  { id:'ironman',     label:'IRONMAN',     desc:'no healing in shops' },
+  { id:'no_spells',   label:'SPELLLESS',   desc:'spells disabled'     },
+  { id:'speed_up',    label:'SPEED UP',    desc:'enemies move faster' },
+];
+const MODIFIER_CONFLICTS = [['short_words','long_words']];
+function getDailyConfig(dateStr) {
+  const rng = mulberry32(seedFromDate(dateStr));
+  const classId = CLASS_IDS[Math.floor(rng() * CLASS_IDS.length)];
+  const numMods = rng() < 0.6 ? 2 : 1;
+  const pool = [...DAILY_MODIFIERS];
+  const mods = [];
+  for (let i = 0; i < numMods && pool.length > 0; i++) {
+    const idx = Math.floor(rng() * pool.length);
+    const chosen = pool.splice(idx, 1)[0];
+    mods.push(chosen);
+    // Remove conflicting modifiers from pool
+    MODIFIER_CONFLICTS.forEach(pair => {
+      if (pair.includes(chosen.id))
+        pool.splice(0, pool.length, ...pool.filter(m => !pair.includes(m.id)));
+    });
+  }
+  return { classId, mods };
+}
+function hasModifier(id) {
+  return dailyMode && dailyConfig && dailyConfig.mods.some(m => m.id === id);
+}
+function startDailyRun() {
+  const date = dailyDateStr();
+  const config = getDailyConfig(date);
+  dailyMode = true;
+  dailyDate = date;
+  dailyConfig = config;
+  diffIdx = 1; // daily is always Normal
+  startRun(config.classId);
+}
+
+async function signPayload(name, score, cls, difficulty, floor, outcome, mode, challengeDate) {
+  const msg = `${name.trim().toUpperCase()}:${score}:${cls}:${difficulty}:${floor}:${outcome}:${mode||'classic'}:${challengeDate||''}`;
   const key = await crypto.subtle.importKey(
     'raw', new TextEncoder().encode(LEADERBOARD_SECRET),
     { name:'HMAC', hash:'SHA-256' }, false, ['sign']
@@ -312,6 +370,12 @@ function calcScore() {
 }
 
 function beginNameEntry() {
+  if (dailyMode && localStorage.getItem('tr_daily_' + dailyDate)) {
+    // Already submitted today — skip to run summary
+    runSummaryScroll = 0;
+    G.screen = 'run_summary';
+    return;
+  }
   const saved = localStorage.getItem('tr_player_name') || '';
   nameEntry = saved;
   nameEntrySubmitting = false;
@@ -331,7 +395,9 @@ async function submitScore() {
   const floor = Math.min(P.floor || 1, 3);
   const outcome = G.runOutcome || 'defeat';
   const score = calcScore();
-  const sig = await signPayload(name, score, P.classId, diffName, floor, outcome);
+  const mode = dailyMode ? 'daily' : 'classic';
+  const challengeDate = dailyMode ? dailyDate : '';
+  const sig = await signPayload(name, score, P.classId, diffName, floor, outcome, mode, challengeDate);
   const payload = {
     name, score,
     class: P.classId,
@@ -340,6 +406,8 @@ async function submitScore() {
     dmg: RunStats.dmgDealt || 0,
     words: RunStats.wordsDestroyed || 0,
     accuracy: acc,
+    mode,
+    challenge_date: challengeDate,
   };
   try {
     const res = await fetch(LEADERBOARD_URL, {
@@ -351,6 +419,7 @@ async function submitScore() {
     if (!res.ok) { nameEntryError = data.error || 'Submission failed.'; }
     else {
       localStorage.setItem('tr_player_name', name.toUpperCase().slice(0, 20));
+      if (dailyMode) localStorage.setItem('tr_daily_' + dailyDate, String(score));
       nameEntryRank = data.rank;
     }
   } catch (e) {
@@ -369,6 +438,17 @@ async function fetchLeaderboard() {
     lbError = 'Could not reach leaderboard server.';
   }
   lbLoading = false;
+}
+async function fetchDailyLeaderboard() {
+  lbDailyLoading = true; lbDailyError = ''; lbDailyData = null;
+  try {
+    const res = await fetch(LEADERBOARD_URL + '?mode=daily&date=' + dailyDateStr());
+    if (!res.ok) throw new Error('Server error');
+    lbDailyData = await res.json();
+  } catch (e) {
+    lbDailyError = 'Could not reach leaderboard server.';
+  }
+  lbDailyLoading = false;
 }
 
 const COMBO_WINDOW = 1500; // ms; rogue class gets 2000ms
@@ -408,6 +488,8 @@ function pickWord() {
   if (P.upgrades && P.upgrades.includes('dk_purge'))  pool = pool.filter(w => w.length < 10);
   if (P.upgrades && P.upgrades.includes('dk_inject')) pool = pool.concat(RD.powerWords);
   if (P.upgrades && P.upgrades.includes('dk_chaos'))  pool = pool.filter(w => w.length >= 5);
+  if (hasModifier('short_words')) pool = pool.filter(w => w.length <= 5);
+  if (hasModifier('long_words'))  pool = pool.filter(w => w.length >= 6);
   const onScreen = new Set(words.map(w => w.text));
   const fresh = pool.filter(w => !onScreen.has(w));
   return rnd(fresh.length ? fresh : pool) || 'bash';
@@ -686,7 +768,7 @@ function spawnCombatWord(isAttack) {
 
   words.push({
     text:txt, x:LANE_X[lane] + (Math.random()-0.5)*50,
-    y:spawnY, speed:enemy.effectiveSpeed,
+    y:spawnY, speed:enemy.effectiveSpeed * (hasModifier('speed_up') ? 1.4 : 1.0),
     isAttack:!!isAttack, invisible:!!isInvis, invisBlinkTimer:isInvis ? 800 : 0,
   });
   updateActiveWord();
@@ -820,6 +902,7 @@ function destroyWord(idx) {
 
 // ── Spells ─────────────────────────────────────────────────────────────────────
 function activateSpell(spellIdx) {
+  if (hasModifier('no_spells')) return;
   const spellName = P.spells[spellIdx];
   if ((P.spellCDs[spellIdx] || 0) > 0) return;
   const upg = RD.upgrades.find(u => u.spell === spellName);
@@ -966,7 +1049,8 @@ function startRun(classId) {
     warAxe:false, vampiricEdge:false, combatShield:0, spellCDMult:1.0,
     shield:0, regenPerRoom:0, spellAmp:classId==='mage',
   };
-  if (cls.startSpell) { P.spells.push(cls.startSpell); P.spellCDs.push(0); P.spellStacks[cls.startSpell] = 1; }
+  if (hasModifier('fragile')) { P.hp = Math.round(P.hp * 0.5); P.maxHp = Math.round(P.maxHp * 0.5); }
+  if (cls.startSpell && !hasModifier('no_spells')) { P.spells.push(cls.startSpell); P.spellCDs.push(0); P.spellStacks[cls.startSpell] = 1; }
   RunStats = { wordsDestroyed:0, dmgDealt:0, totalKeys:0, correctKeys:0, startTime:Date.now(), goldEarned:0, newAchievements:[] };
   track('run_start', { class: classId, difficulty: DIFFICULTIES[diffIdx].id });
   buildMap(); RA.setTheme('dungeon'); G.screen = 'map';
@@ -995,7 +1079,10 @@ function enterNode(nodeIdx) {
 }
 
 function setupShop(nodeIdx) {
+  const HP_UPGRADE_IDS = ['potion','big_potion','regen','vampiric','lifesteal','blood_pact','iron_flesh'];
   const available = RD.upgrades.filter(u => {
+    if (hasModifier('ironman') && (u.type === 'heal' || HP_UPGRADE_IDS.some(id => (u.id||'').includes(id)))) return false;
+    if (hasModifier('no_spells') && u.type === 'spell') return false;
     if (u.type === 'spell' && u.spell) return ((P.spellStacks && P.spellStacks[u.spell]) || 0) < 3;
     return !P.upgrades.includes(u.id);
   });
@@ -1064,12 +1151,13 @@ function applyEventOption(opt) {
 // ── Input ──────────────────────────────────────────────────────────────────────
 function processKey(key) {
   if (G.screen === 'title') {
-    if (key === 'Enter') { G.screen = 'class_select'; RA.startMusic('dungeon'); }
+    if (key === 'Enter') { dailyMode = false; G.screen = 'class_select'; RA.startMusic('dungeon'); }
     if (key === 'l' || key === 'L') { darkMode = !darkMode; applyTheme(); }
     if (key === 'i' || key === 'I') { instructionsScroll = 0; G.screen = 'instructions'; }
     if (key === 'a' || key === 'A') { achievementsScroll = 0; G.screen = 'achievements'; }
-    if (key === 'g' || key === 'G') { G.screen = 'leaderboard'; fetchLeaderboard(); }
+    if (key === 'g' || key === 'G') { lbTab = 'classic'; G.screen = 'leaderboard'; fetchLeaderboard(); }
     if (key === 'c' || key === 'C') { codexScroll = 0; G.screen = 'codex'; }
+    if (key === 'd' || key === 'D') { RA.startMusic('dungeon'); startDailyRun(); }
     return;
   }
   if (G.screen === 'codex') {
@@ -1081,7 +1169,12 @@ function processKey(key) {
     return;
   }
   if (G.screen === 'leaderboard') {
-    if (key === 'Escape' || key === 'Enter') { G.screen = 'title'; }
+    if (key === 'ArrowLeft' || key === 'ArrowRight') {
+      lbTab = lbTab === 'classic' ? 'daily' : 'classic';
+      if (lbTab === 'daily') fetchDailyLeaderboard();
+      else fetchLeaderboard();
+    }
+    if (key === 'Escape' || key === 'Enter') { dailyMode = false; G.screen = 'title'; }
     return;
   }
   if (G.screen === 'name_entry') {
@@ -1257,7 +1350,7 @@ function processKey(key) {
   if (G.screen === 'run_summary' || G.screen === 'gameover' || G.screen === 'victory') {
     if (key === 'ArrowDown') runSummaryScroll++;
     if (key === 'ArrowUp')   runSummaryScroll = Math.max(0, runSummaryScroll - 1);
-    if (key === 'Enter') { runSummaryScroll = 0; G.screen = 'title'; }
+    if (key === 'Enter') { runSummaryScroll = 0; dailyMode = false; G.screen = 'title'; }
     return;
   }
 }
@@ -1292,6 +1385,14 @@ function renderTitle() {
     '', '', '',
     dim('[I] instructions  ·  [A] achievements  ·  [C] codex'),
     dim('[G] rankings  ·  [L] ' + (darkMode ? 'light mode' : 'dark mode') + '  ·  by joe accardi'),
+    '',
+    (() => {
+      const dc = getDailyConfig(dailyDateStr());
+      const alreadyPlayed = !!localStorage.getItem('tr_daily_' + dailyDateStr());
+      const modStr = dc.mods.map(m => m.label.toLowerCase()).join('  ·  ');
+      const label = '[D] daily  ·  ' + dc.classId + '  ·  ' + modStr + (alreadyPlayed ? '  ·  played' : '');
+      return alreadyPlayed ? dim(label) : wh(label);
+    })(),
   ].join('\n');
   clear();
   screen.classList.add('centered');
@@ -1760,30 +1861,63 @@ function renderNameEntry() {
 }
 
 function renderLeaderboard() {
-  const lines = ['', wh('   GLOBAL RANKINGS'), dim('   trinacria.ddns.net'), dim('   ' + '─'.repeat(60)), ''];
-  if (lbLoading) {
-    lines.push(dim('   loading...'));
-  } else if (lbError) {
-    lines.push(sp('   ' + lbError, C.red));
-  } else if (!lbData || lbData.length === 0) {
-    lines.push(dim('   no scores yet — be the first!'));
+  const classicTab = lbTab === 'classic' ? wh('[ CLASSIC ]') : dim('  CLASSIC  ');
+  const dailyTab   = lbTab === 'daily'   ? wh('[ DAILY CHALLENGE ]') : dim('  DAILY CHALLENGE  ');
+  const lines = ['', wh('   GLOBAL RANKINGS'), dim('   trinacria.ddns.net'), ''];
+  lines.push('   ' + classicTab + '   ' + dailyTab);
+  lines.push(dim('   ' + '─'.repeat(60)));
+  lines.push('');
+
+  if (lbTab === 'daily') {
+    const dc = getDailyConfig(dailyDateStr());
+    const modStr = dc.mods.map(m => m.desc).join('  ·  ');
+    lines.push(dim('   ' + dailyDateStr() + '  ·  ' + dc.classId + '  ·  ' + modStr));
+    lines.push('');
+    const data = lbDailyData, loading = lbDailyLoading, err = lbDailyError;
+    if (loading) {
+      lines.push(dim('   loading...'));
+    } else if (err) {
+      lines.push(sp('   ' + err, C.red));
+    } else if (!data || data.length === 0) {
+      lines.push(dim('   no scores yet — be the first!'));
+    } else {
+      lines.push(dim('   # ' + '  NAME                SCORE      CLASS     FLOOR'));
+      lines.push(dim('   ' + '─'.repeat(60)));
+      data.forEach((e, i) => {
+        const rank  = String(i + 1).padEnd(2);
+        const name  = e.name.padEnd(20);
+        const score = String(e.score.toLocaleString()).padEnd(10);
+        const cls   = e.class.padEnd(9);
+        const floor = 'F' + e.floor + (e.outcome === 'victory' ? '✓' : ' ');
+        const col   = i === 0 ? C.gold : i < 3 ? C.hi : C.txt;
+        lines.push(sp('   ' + rank + ' ' + name + score + cls + floor, col));
+      });
+    }
   } else {
-    lines.push(dim('   # ' + '  NAME                SCORE      CLASS     DIFF    FLOOR'));
-    lines.push(dim('   ' + '─'.repeat(60)));
-    lbData.forEach((e, i) => {
-      const rank  = String(i + 1).padEnd(2);
-      const name  = e.name.padEnd(20);
-      const score = String(e.score.toLocaleString()).padEnd(10);
-      const cls   = e.class.padEnd(9);
-      const diff  = e.difficulty.padEnd(7);
-      const floor = 'F' + e.floor + (e.outcome === 'victory' ? '✓' : ' ');
-      const col   = i === 0 ? C.gold : i < 3 ? C.hi : C.txt;
-      lines.push(sp('   ' + rank + ' ' + name + score + cls + diff + floor, col));
-    });
+    if (lbLoading) {
+      lines.push(dim('   loading...'));
+    } else if (lbError) {
+      lines.push(sp('   ' + lbError, C.red));
+    } else if (!lbData || lbData.length === 0) {
+      lines.push(dim('   no scores yet — be the first!'));
+    } else {
+      lines.push(dim('   # ' + '  NAME                SCORE      CLASS     DIFF    FLOOR'));
+      lines.push(dim('   ' + '─'.repeat(60)));
+      lbData.forEach((e, i) => {
+        const rank  = String(i + 1).padEnd(2);
+        const name  = e.name.padEnd(20);
+        const score = String(e.score.toLocaleString()).padEnd(10);
+        const cls   = e.class.padEnd(9);
+        const diff  = e.difficulty.padEnd(7);
+        const floor = 'F' + e.floor + (e.outcome === 'victory' ? '✓' : ' ');
+        const col   = i === 0 ? C.gold : i < 3 ? C.hi : C.txt;
+        lines.push(sp('   ' + rank + ' ' + name + score + cls + diff + floor, col));
+      });
+    }
   }
   lines.push('');
   lines.push(dim('   ' + '─'.repeat(60)));
-  lines.push(dim('   ESC back'));
+  lines.push(dim('   ← → switch tab   ESC back'));
   screen.innerHTML = lines.join('\n');
   clear();
 }
