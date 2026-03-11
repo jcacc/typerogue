@@ -1322,6 +1322,8 @@ function renderTitle() {
     dim('[I] instructions  ·  [A] achievements  ·  [C] codex'),
     dim('[G] rankings  ·  [L] ' + (darkMode ? 'light mode' : 'dark mode') + '  ·  ') + `<span id="credit-link" style="color:${C.dim};cursor:pointer;text-decoration:underline;text-underline-offset:3px;">by joe accardi</span>`,
   ].join('\n');
+  const creditEl = document.getElementById('credit-link');
+  if (creditEl) creditEl.onclick = showCreditArt;
   clear();
   screen.classList.add('centered');
   ghLink.style.display = '';
@@ -1984,7 +1986,7 @@ window.addEventListener('keydown', e => {
 
 requestAnimationFrame(loop);
 
-document.getElementById('screen').addEventListener('click', e => {
+document.addEventListener('click', e => {
   if (e.target && e.target.id === 'credit-link') showCreditArt();
 });
 </script>
