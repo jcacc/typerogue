@@ -80,6 +80,9 @@
   <div id="word-layer"></div>
   <div id="float-layer"></div>
   <div id="portrait-layer"></div>
+  <div id="credit-modal" onclick="hideCreditArt()" style="display:none;position:absolute;inset:0;z-index:100;align-items:center;justify-content:center;background:rgba(0,0,0,0.75);">
+    <pre id="credit-art" style="font-family:'Menlo','Monaco','Cascadia Code','Consolas','Courier New',monospace;font-size:14px;line-height:1.4;color:#a8a8a8;margin:0;cursor:pointer;"></pre>
+  </div>
   <a id="gh-link" href="https://github.com/jcacc/typerogue" target="_blank"
      style="position:absolute;bottom:14px;left:50%;transform:translateX(-50%);
             font-family:inherit;font-size:13px;text-decoration:none;z-index:10;"></a>
@@ -97,6 +100,33 @@
 
 function track(name, data) {
   try { window.va?.('event', { name, data }); } catch {}
+}
+
+const CREDIT_ART = ` ,------------------.
+ |   _,dMMMMMb._    |
+ |  dP"YMMTHWP"Yb   |
+ |  M:         :M   |
+ |  M; __   __ :M   |
+ |  Y_,--._.--._Y   |
+ |  : \`..\"^\"..' :   |
+ |  #:   d_b   ;#   |
+ |  ##bvd"^"bvd##   |
+ |  #####bmd#####   |
+ |   ###########    |
+ |     #######.     |
+ |__,-/|     | \\___  |
+ |  ,' \`._ _,'  \`. \`|
+ | \`----" Y ---v-.\\ |
+ |        |         |
+ \`-------------jca--'`;
+
+function showCreditArt() {
+  const modal = document.getElementById('credit-modal');
+  document.getElementById('credit-art').textContent = CREDIT_ART;
+  modal.style.display = 'flex';
+}
+function hideCreditArt() {
+  document.getElementById('credit-modal').style.display = 'none';
 }
 
 const RD = window.ROGUE_DATA;
@@ -1290,7 +1320,7 @@ function renderTitle() {
     best ? dim('best: ' + best) : '',
     '', '', '',
     dim('[I] instructions  ·  [A] achievements  ·  [C] codex'),
-    dim('[G] rankings  ·  [L] ' + (darkMode ? 'light mode' : 'dark mode') + '  ·  by joe accardi'),
+    dim('[G] rankings  ·  [L] ' + (darkMode ? 'light mode' : 'dark mode') + '  ·  ') + `<span id="credit-link" style="color:${C.dim};cursor:pointer;text-decoration:underline;text-underline-offset:3px;" onclick="showCreditArt()">by joe accardi</span>`,
   ].join('\n');
   clear();
   screen.classList.add('centered');
