@@ -1,5 +1,20 @@
 # TYPEROGUE DEVLOG
 
+## 2026-10-18
+
+### 17 new achievements (29 total)
+
+- **Class wins** — EAGLE EYE (Ranger), GRAVE LORD (Necromancer), and PANTHEON for winning with all five classes.
+- **Combat** — OVERKILL (100+ dmg in one word), UNSTOPPABLE (×20 combo), FLAWLESS (elite with no damage taken), SCAVENGER (8 pickups), CHEATED DEATH (Deathless saves you).
+- **Spells** — SPELLSLINGER (30 casts), ARCHMAGE (spell to Lv3), DIVINE WRATH (150+ Smite), SUPERNOVA (Nova hits 6+ words).
+- **Run wins** — BY A THREAD (<10% HP), AGENT OF CHAOS (Chaos deck), SKINFLINT (no shop purchases), DAILY CHAMPION (win a daily).
+- **Shop** — BIG SPENDER (¢250 spent in one run).
+
+RunStats now tracks pickups, spells cast and shop spend. Class-win achievements use a single class → id map.
+
+### Leaderboard outage fixed
+Home IP changed and the No-IP hostname went stale, so Let's Encrypt couldn't renew and the cert expired on 2026-07-29. Reinstalled the No-IP client, renewed the cert, and added a certbot deploy hook to reload nginx after renewals.
+
 ## 2026-03-06
 
 ### 9 new spells + spell stacking

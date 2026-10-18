@@ -32,7 +32,7 @@ Possible features, roughly ordered by effort. Nothing here is committed.
 ## Meta / Progression
 
 - **Run history** — log of last N runs (outcome, class, floor, kills) beyond just the best
-- **Achievements** — e.g. "clear a floor without taking damage", "type a 10-letter word", "win with Rogue"
+- ~~**Achievements**~~ — ✓ done (29 achievements: class wins, combat feats, spells, shop, daily)
 - **Daily seed** — fixed random seed per day so everyone gets the same run
 - **Unlockable classes** — start with Warrior only; unlock Rogue and Mage through play
 

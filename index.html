@@ -186,7 +186,25 @@ const ACHIEVEMENTS = [
   { id:'lexicographer', name:'LEXICOGRAPHER', desc:'Type a word with 10+ letters'        },
   { id:'rich',          name:'GOLD FEVER',    desc:'Earn ¢300 from kills in one run'     },
   { id:'untouchable',   name:'UNTOUCHABLE',   desc:'Defeat a boss without taking damage' },
+  { id:'ranger_clear',  name:'EAGLE EYE',     desc:'Win a run as Ranger'                 },
+  { id:'necro_clear',   name:'GRAVE LORD',    desc:'Win a run as Necromancer'            },
+  { id:'all_classes',   name:'PANTHEON',      desc:'Win a run with every class'          },
+  { id:'overkill',      name:'OVERKILL',      desc:'Deal 100+ damage with a single word' },
+  { id:'unstoppable',   name:'UNSTOPPABLE',   desc:'Reach a ×20 combo'                   },
+  { id:'flawless',      name:'FLAWLESS',      desc:'Defeat an elite without taking damage' },
+  { id:'scavenger',     name:'SCAVENGER',     desc:'Collect 8 pickups in one run'        },
+  { id:'spellslinger',  name:'SPELLSLINGER',  desc:'Cast 30 spells in one run'           },
+  { id:'archmage',      name:'ARCHMAGE',      desc:'Raise a spell to Lv3'                },
+  { id:'divine_wrath',  name:'DIVINE WRATH',  desc:'Smite for 150+ damage'               },
+  { id:'supernova',     name:'SUPERNOVA',     desc:'Destroy 6+ words with one Nova'      },
+  { id:'cheated_death', name:'CHEATED DEATH', desc:'Survive a lethal hit with Deathless' },
+  { id:'by_a_thread',   name:'BY A THREAD',   desc:'Win a run with under 10% HP left'    },
+  { id:'chaos_win',     name:'AGENT OF CHAOS', desc:'Win a run with the Chaos deck'      },
+  { id:'skinflint',     name:'SKINFLINT',     desc:'Win without buying from a shop'      },
+  { id:'big_spender',   name:'BIG SPENDER',   desc:'Spend ¢250 in shops in one run'      },
+  { id:'daily_win',     name:'DAILY CHAMPION', desc:'Win a daily challenge'              },
 ];
+const CLASS_CLEAR_ACHS = { warrior:'warrior_clear', mage:'mage_clear', rogue:'rogue_clear', ranger:'ranger_clear', necromancer:'necro_clear' };
 
 let earnedAchievements = (() => {
   try { return new Set(JSON.parse(localStorage.getItem('typerogue_achievements')) || []); } catch { return new Set(); }
@@ -220,9 +238,12 @@ function checkRunAchievements() {
   if (isVictory) {
     unlockAchievement('first_clear');
     if (DIFFICULTIES[diffIdx].id === 'hard') unlockAchievement('hard_clear');
-    if (P.classId === 'warrior') unlockAchievement('warrior_clear');
-    if (P.classId === 'rogue')   unlockAchievement('rogue_clear');
-    if (P.classId === 'mage')    unlockAchievement('mage_clear');
+    if (CLASS_CLEAR_ACHS[P.classId]) unlockAchievement(CLASS_CLEAR_ACHS[P.classId]);
+    if (Object.values(CLASS_CLEAR_ACHS).every(id => earnedAchievements.has(id))) unlockAchievement('all_classes');
+    if (P.hp < P.maxHp * 0.1) unlockAchievement('by_a_thread');
+    if (P.upgrades && P.upgrades.includes('dk_chaos')) unlockAchievement('chaos_win');
+    if (!RunStats.shopSpent) unlockAchievement('skinflint');
+    if (dailyMode) unlockAchievement('daily_win');
     const elapsed = ((RunStats.endTime || Date.now()) - RunStats.startTime) / 1000;
     if (elapsed < 420) unlockAchievement('speedrun');
     const acc = RunStats.totalKeys > 0 ? RunStats.correctKeys / RunStats.totalKeys : 0;
@@ -609,7 +630,7 @@ function initCombat(enemyId) {
   attackTimer = enemy.attackInterval * 0.7;
   freezeTimer = 0; hasteTimer = 0; slowTimer = 0; wardTimer = 0; leechTimer = 0; flashTimer = 0; flashMsg = '';
   chainCount = 0; reaveActive = false; lastWordDmg = 0; markedWordText = null;
-  if (eData.type === 'boss') RunStats.bossNoDamage = true;
+  if (eData.type === 'boss' || eData.type === 'elite') RunStats.bossNoDamage = true;
   scrambleTimer = eData.special === 'scramble' ? 15000 : 0;
   pickupTimer = 14000 + Math.random() * 8000;
   invisWordCount = 0;
@@ -670,7 +691,7 @@ function updateCombat(dt) {
         }
         if (dmg > 0) {
           P.hp = Math.max(0, P.hp - dmg);
-          if (enemy.type === 'boss') RunStats.bossNoDamage = false;
+          if (enemy.type === 'boss' || enemy.type === 'elite') RunStats.bossNoDamage = false;
           RA.playPlayerHit();
           spawnFloat(W/2, WORD_EXIT_Y - 10, `-${dmg}`, C.red);
           flashTimer = 400; flashMsg = `-${dmg} HP`; flashColor = C.red;
@@ -715,7 +736,7 @@ function updateCombat(dt) {
 
   if (P.hp <= 0) {
     if (P.deathless && !P.deathlessUsed) {
-      P.hp = 1; P.deathlessUsed = true;
+      P.hp = 1; P.deathlessUsed = true; unlockAchievement('cheated_death');
       flashMsg = 'DEATHLESS!'; flashColor = '#993366'; flashTimer = 1500;
     } else { RA.playGameOver(); RA.stopMusic(1.5); G.runOutcome = 'defeat'; RunStats.endTime = Date.now(); checkRunAchievements(); checkClassUnlock(); saveBestRun('defeat'); track('run_end', { outcome: 'defeat', class: P.classId, floor: P.floor || 1, difficulty: DIFFICULTIES[diffIdx].id }); runSummaryScroll = 0; beginNameEntry(); return; }
   }
@@ -727,7 +748,8 @@ function updateCombat(dt) {
     const lootGold = (enemy.loot && enemy.loot.gold) || 0;
     P.gold = (P.gold || 0) + lootGold;
     RunStats.goldEarned = (RunStats.goldEarned || 0) + lootGold;
-    if (enemy.type === 'boss' && RunStats.bossNoDamage) unlockAchievement('untouchable');
+    if (enemy.type === 'boss'  && RunStats.bossNoDamage) unlockAchievement('untouchable');
+    if (enemy.type === 'elite' && RunStats.bossNoDamage) unlockAchievement('flawless');
     mapNodes[G.combatNodeIdx].cleared = true;
     (G.mapAdj[G.combatNodeIdx] || []).forEach(i => { mapNodes[i].reachable = true; });
     mapSelIdx = (G.mapAdj[G.combatNodeIdx] || [])[0] || 0;
@@ -825,6 +847,8 @@ function destroyWord(idx) {
     if (eff.type === 'gold')   { P.gold = (P.gold || 0) + eff.amount; RunStats.goldEarned += eff.amount; }
     if (eff.type === 'shield') P.shield = (P.shield || 0) + eff.amount;
     if (eff.type === 'dmg')    P.dmgMult += eff.amount;
+    RunStats.pickups = (RunStats.pickups || 0) + 1;
+    if (RunStats.pickups >= 8) unlockAchievement('scavenger');
     RA.playWordDestroy();
     spawnFloat(w.x, w.y - 20, eff.label, eff.color);
     words.splice(idx, 1);
@@ -851,6 +875,7 @@ function destroyWord(idx) {
   else comboCount = 1;
   comboTime = combatTick;
   if (comboCount >= 10) unlockAchievement('combo_king');
+  if (comboCount >= 20) unlockAchievement('unstoppable');
   const cMult = comboCount >= 10 ? 2.0 : comboCount >= 6 ? 1.5 : comboCount >= 3 ? 1.25 : 1.0;
   if (cMult > 1.0) dmg = Math.ceil(dmg * cMult);
 
@@ -879,6 +904,7 @@ function destroyWord(idx) {
   RunStats.wordsDestroyed++;
   RunStats.dmgDealt += dmg;
   if (w.text.length >= 10) unlockAchievement('lexicographer');
+  if (dmg >= 100) unlockAchievement('overkill');
   if (RunStats.wordsDestroyed >= 150) unlockAchievement('wordsmith');
   RA.playWordDestroy(); RA.playEnemyHit();
   const floatLabel = (cMult > 1.0 ? `-${dmg} ×${cMult}` : `-${dmg}`) + extraLabel;
@@ -913,11 +939,14 @@ function activateSpell(spellIdx) {
   const totalAmp = amp * stackMult;
   P.spellCDs[spellIdx] = Math.round(upg.cd * (P.spellCDMult || 1));
   RA.playSpellCast();
+  RunStats.spellsCast = (RunStats.spellsCast || 0) + 1;
+  if (RunStats.spellsCast >= 30) unlockAchievement('spellslinger');
   switch (spellName) {
     case 'freeze':  freezeTimer = Math.max(freezeTimer, 0) + 3000 * totalAmp; spawnFloat(W/2, 160, 'FREEZE!', C.blue); break;
     case 'shield':  P.shield = (P.shield||0) + Math.floor(30*totalAmp); spawnFloat(W/2, WORD_EXIT_Y-30, `SHIELD+${Math.floor(30*totalAmp)}`, C.blue); break;
     case 'nova': {
       const nd = Math.floor(15*totalAmp);
+      if (words.length >= 6) unlockAchievement('supernova');
       enemy.hp = Math.max(0, enemy.hp - words.length * nd);
       spawnFloat(W/2, H/2, `NOVA! -${words.length*nd}`, C.hi);
       words = []; typed = ''; activeWordIdx = -1; break;
@@ -987,6 +1016,7 @@ function activateSpell(spellIdx) {
     case 'chain': chainCount += 5 * stacks; spawnFloat(W/2, 160, `CHAIN! +${5*stacks}`, C.gold); break;
     case 'smite': {
       const sd = Math.max(8, Math.floor(comboCount * 8 * totalAmp));
+      if (sd >= 150) unlockAchievement('divine_wrath');
       enemy.hp = Math.max(0, enemy.hp - sd);
       RunStats.dmgDealt += sd;
       spawnFloat(W/2, 160, `SMITE -${sd}`, C.hi); break;
@@ -1034,6 +1064,7 @@ function applyUpgrade(upg) {
     const curStacks = P.spellStacks[upg.spell] || 0;
     if (curStacks === 0) { P.spells.push(upg.spell); P.spellCDs.push(0); }
     P.spellStacks[upg.spell] = Math.min(3, curStacks + 1);
+    if (P.spellStacks[upg.spell] >= 3) unlockAchievement('archmage');
   }
 }
 
@@ -1051,7 +1082,7 @@ function startRun(classId) {
   };
   if (hasModifier('fragile')) { P.hp = Math.round(P.hp * 0.5); P.maxHp = Math.round(P.maxHp * 0.5); }
   if (cls.startSpell && !hasModifier('no_spells')) { P.spells.push(cls.startSpell); P.spellCDs.push(0); P.spellStacks[cls.startSpell] = 1; }
-  RunStats = { wordsDestroyed:0, dmgDealt:0, totalKeys:0, correctKeys:0, startTime:Date.now(), goldEarned:0, newAchievements:[] };
+  RunStats = { wordsDestroyed:0, dmgDealt:0, totalKeys:0, correctKeys:0, startTime:Date.now(), goldEarned:0, pickups:0, spellsCast:0, shopSpent:0, newAchievements:[] };
   track('run_start', { class: classId, difficulty: DIFFICULTIES[diffIdx].id });
   buildMap(); RA.setTheme('dungeon'); G.screen = 'map';
 }
@@ -1308,6 +1339,8 @@ function processKey(key) {
       const item = (G.shopItems||[])[(G.shopIdx||0)];
       if (item && P.gold >= item.cost && !item.owned) {
         P.gold -= item.cost; applyUpgrade(item.upgrade); item.owned = true; RA.playUpgradePick();
+        RunStats.shopSpent = (RunStats.shopSpent || 0) + item.cost;
+        if (RunStats.shopSpent >= 250) unlockAchievement('big_spender');
       }
     }
     return;
