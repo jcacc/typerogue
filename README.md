@@ -8,7 +8,7 @@
 
 A typing roguelike inspired by Slay the Spire, Vampire Survivors and memories of typing in a terminal growing up. Type words to deal damage. Survive three floors.
 
-**v0.7** — [play](https://typerogue.xyz) · [global leaderboard](https://trinacria.ddns.net/leaderboard)
+**v1.0** — [play](https://typerogue.xyz) · [global leaderboard](https://trinacria.ddns.net/leaderboard)
 
 ## How to play
 
