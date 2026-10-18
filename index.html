@@ -80,9 +80,6 @@
   <div id="word-layer"></div>
   <div id="float-layer"></div>
   <div id="portrait-layer"></div>
-<a id="gh-link" href="https://github.com/jcacc/typerogue" target="_blank"
-     style="position:absolute;bottom:14px;left:50%;transform:translateX(-50%);
-            font-family:inherit;font-size:13px;text-decoration:none;z-index:10;"></a>
   <span id="ver-label"
      style="position:absolute;bottom:14px;right:18px;
             font-family:'Menlo','Monaco','Cascadia Code','Consolas','Courier New',monospace;
@@ -129,8 +126,6 @@ function applyTheme() {
   const game = document.getElementById('game');
   game.style.background = t.bg;
   game.style.color = t.txt;
-  const gh = document.getElementById('gh-link');
-  gh.style.color = t.dim;
   const ver = document.getElementById('ver-label');
   ver.textContent = VERSION;
   ver.style.color = t.dim;
@@ -1389,12 +1384,8 @@ function processKey(key) {
 }
 
 // ── Render ─────────────────────────────────────────────────────────────────────
-const ghLink = document.getElementById('gh-link');
-ghLink.textContent = 'github.com/jcacc/typerogue';
-
 function clear() {
   wordLayer.innerHTML = ''; floatLayer.innerHTML = ''; portraitLayer.innerHTML = '';
-  ghLink.style.display = 'none';
   screen.classList.remove('centered');
 }
 
@@ -1429,7 +1420,6 @@ function renderTitle() {
   ].join('\n');
   clear();
   screen.classList.add('centered');
-  ghLink.style.display = '';
   // Drifting background particles
   const colBase = darkMode ? '168,168,168' : '74,74,74';
   titleParticles.forEach(p => {
