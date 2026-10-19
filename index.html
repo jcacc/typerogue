@@ -134,7 +134,7 @@ function applyTheme() {
   game.style.background = t.bg;
   game.style.color = t.txt;
   const ver = document.getElementById('ver-label');
-  ver.textContent = (window.IPAD_MODE ? '` = esc  ·  ' : '') + VERSION;
+  ver.textContent = VERSION;
   ver.style.color = t.dim;
 }
 
@@ -2128,6 +2128,11 @@ if (window.IPAD_MODE) {
   };
   fitGame();
   window.addEventListener('resize', fitGame);
+  // Small hint for the Esc stand-in, bottom-left so it doesn't crowd the version label
+  const escHint = document.createElement('span');
+  escHint.textContent = '` = esc';
+  escHint.style.cssText = 'position:absolute;bottom:14px;left:18px;font-size:13px;z-index:10;pointer-events:none;opacity:0.6;';
+  document.getElementById('game').appendChild(escHint);
   // iOS only starts audio after a tap; the first tap wakes it up
   window.addEventListener('touchend', () => RA.playKeyCorrect(), { once: true });
 }
