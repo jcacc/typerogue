@@ -4,6 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>TYPEROGUE</title>
+  <script>
+    // /ipad: same game, but for iPads with a hardware keyboard (no mobile wall, scaled to fit)
+    window.IPAD_MODE = /^\/ipad\/?$/.test(location.pathname);
+    if (window.IPAD_MODE) document.documentElement.classList.add('ipad');
+  </script>
   <script defer src="/_vercel/insights/script.js"></script>
   <style>
     * { margin:0; padding:0; box-sizing:border-box; }
@@ -63,6 +68,8 @@
     @media (max-width: 860px), (pointer: coarse) {
       #mobile-wall { display: flex; }
     }
+    html.ipad #mobile-wall { display: none !important; }
+    html.ipad body { touch-action: none; -webkit-user-select: none; user-select: none; }
   </style>
 </head>
 <body>
@@ -127,7 +134,7 @@ function applyTheme() {
   game.style.background = t.bg;
   game.style.color = t.txt;
   const ver = document.getElementById('ver-label');
-  ver.textContent = VERSION;
+  ver.textContent = (window.IPAD_MODE ? '` = esc  ·  ' : '') + VERSION;
   ver.style.color = t.dim;
 }
 
@@ -2107,8 +2114,23 @@ applyTheme();
 window.addEventListener('keydown', e => {
   if (['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Enter','Backspace'].includes(e.key))
     e.preventDefault();
-  processKey(e.key);
+  let key = e.key;
+  // Many iPad keyboards have no Esc key, so ` stands in for it on /ipad
+  if (window.IPAD_MODE && key === '`') { e.preventDefault(); key = 'Escape'; }
+  processKey(key);
 });
+
+if (window.IPAD_MODE) {
+  // Scale the fixed 800×520 game to fill the screen
+  const fitGame = () => {
+    const s = Math.min(window.innerWidth / W, window.innerHeight / H);
+    document.getElementById('game').style.transform = 'scale(' + s + ')';
+  };
+  fitGame();
+  window.addEventListener('resize', fitGame);
+  // iOS only starts audio after a tap; the first tap wakes it up
+  window.addEventListener('touchend', () => RA.playKeyCorrect(), { once: true });
+}
 
 requestAnimationFrame(loop);
 </script>

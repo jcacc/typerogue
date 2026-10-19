@@ -1,0 +1,7 @@
+{
+  "rewrites": [
+    { "source": "/ipad", "destination": "/index.html" },
+    { "source": "/ipad/", "destination": "/index.html" },
+    { "source": "/ipad/:file", "destination": "/:file" }
+  ]
+}
