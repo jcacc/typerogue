@@ -337,8 +337,10 @@ function seedFromDate(s) {
   return h >>> 0;
 }
 const DAILY_MODIFIERS = [
-  { id:'short_words', label:'SHORT WORDS', desc:'max 5-letter words'  },
-  { id:'long_words',  label:'LONG WORDS',  desc:'min 6-letter words'  },
+  { id:'short_words', label:'SHORT WORDS', desc:'max 5-letter words',
+    mathLabel:'EASY FACTS', mathDesc:'easy facts only (up to 7s)' },
+  { id:'long_words',  label:'LONG WORDS',  desc:'min 6-letter words',
+    mathLabel:'HARD FACTS', mathDesc:'hard facts only (8s, 9s, 12s)' },
   { id:'fragile',     label:'FRAGILE',     desc:'50% max HP'          },
   { id:'ironman',     label:'IRONMAN',     desc:'no healing in shops' },
   { id:'no_spells',   label:'SPELLLESS',   desc:'spells disabled'     },
@@ -1489,7 +1491,7 @@ function renderTitle() {
     (() => {
       const dc = getDailyConfig(dailyDateStr());
       const alreadyPlayed = !!localStorage.getItem('tr_daily_' + dailyDateStr());
-      const modStr = dc.mods.map(m => m.label.toLowerCase()).join('  ·  ');
+      const modStr = dc.mods.map(m => ((mathMode && m.mathLabel) || m.label).toLowerCase()).join('  ·  ');
       const label = '[D] daily  ·  ' + dc.classId + '  ·  ' + modStr + (alreadyPlayed ? '  ·  played' : '');
       return alreadyPlayed ? dim(label) : wh(label);
     })(),
@@ -1978,7 +1980,7 @@ function renderLeaderboard() {
 
   if (lbTab === 'daily') {
     const dc = getDailyConfig(dailyDateStr());
-    const modStr = dc.mods.map(m => m.desc).join('  ·  ');
+    const modStr = dc.mods.map(m => (mathMode && m.mathDesc) || m.desc).join('  ·  ');
     lines.push(dim('   ' + dailyDateStr() + '  ·  ' + dc.classId + '  ·  ' + modStr));
     lines.push('');
     const data = lbDailyData, loading = lbDailyLoading, err = lbDailyError;
@@ -2088,7 +2090,11 @@ function renderDifficultySelect() {
   const tabs = DIFFICULTIES.map((df, i) =>
     i === diffIdx ? wh('[ ' + df.label + ' ]') : dim('  ' + df.label + '  ')
   ).join('   ');
-  const desc = {
+  const desc = mathMode ? {
+    beginner: 'slower problems  ·  fewer on screen  ·  lower enemy hp  ·  more gold',
+    normal:   'the intended experience',
+    hard:     'faster problems  ·  more on screen  ·  tougher enemies  ·  less gold',
+  } : {
     beginner: 'slower words  ·  lower enemy hp  ·  more gold  ·  great for new players',
     normal:   'the intended experience',
     hard:     'faster words  ·  tougher enemies  ·  less gold  ·  no mercy',
