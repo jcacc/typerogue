@@ -1036,7 +1036,7 @@ function activateSpell(spellIdx) {
         RunStats.dmgDealt += ed;
         spawnFloat(W/2, H/2, `ECHO -${ed}`, C.gold);
       } else {
-        spawnFloat(W/2, H/2, 'ECHO (no word yet)', C.dim);
+        spawnFloat(W/2, H/2, mathMode ? 'ECHO (nothing solved yet)' : 'ECHO (no word yet)', C.dim);
       }
       break;
     }
@@ -1052,7 +1052,7 @@ function activateSpell(spellIdx) {
         markedWordText = target.text;
         spawnFloat(W/2, 160, 'MARK!', C.gold);
       } else {
-        spawnFloat(W/2, 160, 'MARK (no words)', C.dim);
+        spawnFloat(W/2, 160, mathMode ? 'MARK (no problems)' : 'MARK (no words)', C.dim);
       }
       break;
     }
@@ -1247,6 +1247,8 @@ function applyEventOption(opt) {
 
 // ── Input ──────────────────────────────────────────────────────────────────────
 const MATH_SPELL_KEYS = ['q', 'w', 'e'];
+// Upgrade description, using the math-mode wording when it has one
+function upgDesc(u) { return (mathMode && u.mathDesc) || u.desc; }
 function spellKeyLabel(i) { return mathMode ? MATH_SPELL_KEYS[i].toUpperCase() : String(i + 1); }
 
 function processKey(key) {
@@ -1744,7 +1746,7 @@ function renderUpgrade() {
     const prefix = sel ? '>' : ' ';
     lines.push(sp(prefix + ' [' + (i+1) + '] ' + typeIcon + ' ' + u.name, sel ? C.white : rarCol));
     lines.push(dim('      ' + u.rarity + ' ' + u.type));
-    lines.push(sp('      ' + u.desc, sel ? C.txt : C.dim));
+    lines.push(sp('      ' + upgDesc(u), sel ? C.txt : C.dim));
     lines.push('');
   });
   lines.push(!upgradeChosen ? dim('   ^ v navigate    ENTER confirm    1 2 3 shortcut') : sp('   ...', C.gold));
@@ -1783,7 +1785,7 @@ function renderShop() {
     const costStr = item.owned ? dim('OWNED') : sp('¢' + item.cost, canBuy ? C.gold : C.red);
     lines.push(sp(prefix + u.name, item.owned ? C.dim : C.white) + '    ' + costStr);
     lines.push(dim('  ' + u.rarity + ' · ' + u.type));
-    lines.push(sp('  ' + u.desc, C.dim));
+    lines.push(sp('  ' + upgDesc(u), C.dim));
     lines.push('');
   });
   lines.push(dim('   ^ v navigate  ENTER buy  ESC leave'));
@@ -1929,7 +1931,7 @@ function renderCodex() {
     const rarCol = RD.rarityColor[u.rarity] || C.txt;
     const cdSec = (u.cd / 1000).toFixed(0) + 's';
     lines.push(sp('   ' + u.name, rarCol) + '   ' + dim(u.rarity + '  ·  CD: ' + cdSec));
-    lines.push('   ' + sp(u.desc.replace(/\s*\(CD:[^)]+\)/, ''), C.txt));
+    lines.push('   ' + sp(upgDesc(u).replace(/\s*\(CD:[^)]+\)/, ''), C.txt));
     lines.push('');
   });
   while (lines.length < 20) lines.push('');
@@ -2126,30 +2128,30 @@ function renderInstructions() {
     wh('   combat'),
     dim(mathMode ? '   type the answers to the problems drifting down the screen' : '   type the words drifting across the screen to deal damage'),
     dim(mathMode ? '   harder problems = more damage' : '   longer words = more damage'),
-    dim('   red words are enemy attacks — type them to block'),
+    dim(mathMode ? '   red problems are enemy attacks — solve them to block' : '   red words are enemy attacks — type them to block'),
     dim(mathMode ? '   blinking problems with a bonus label are pickups' : '   symbols (!@#$%) are pickups — type them for bonuses'),
     '',
     wh('   spells'),
     dim(mathMode ? '   press Q / W / E to cast a spell (if you have one)' : '   press 1-3 to cast a spell (if you have one)'),
     dim('   acquiring the same spell again raises its level (max Lv3)'),
-    dim('   freeze  — stops all words for 3s'),
+    dim(mathMode ? '   freeze  — stops all problems for 3s' : '   freeze  — stops all words for 3s'),
     dim('   shield  — absorbs incoming damage'),
-    dim('   nova    — damages enemy for each word on screen'),
-    dim('   haste   — slows words 40% for 5s'),
+    dim(mathMode ? '   nova    — damages enemy for each problem on screen' : '   nova    — damages enemy for each word on screen'),
+    dim(mathMode ? '   haste   — slows problems 40% for 5s' : '   haste   — slows words 40% for 5s'),
     dim('   drain   — deals damage and heals you'),
     dim('   blast   — heavy single hit'),
-    dim('   echo    — repeat last destroyed word\'s damage for free'),
-    dim('   slow    — words crawl at 20% speed for 4s'),
-    dim('   reave   — next word deals 3× damage'),
+    dim(mathMode ? '   echo    — repeat last solved problem\'s damage for free' : '   echo    — repeat last destroyed word\'s damage for free'),
+    dim(mathMode ? '   slow    — problems crawl at 20% speed for 4s' : '   slow    — words crawl at 20% speed for 4s'),
+    dim(mathMode ? '   reave   — next problem deals 3× damage' : '   reave   — next word deals 3× damage'),
     dim('   ward    — block all enemy attacks for 5s'),
-    dim('   mark    — highlight one word; destroying it deals 5× dmg'),
-    dim('   leech   — heal 1 HP per letter typed for 10s'),
-    dim('   volley  — instantly destroy 3 shortest words'),
-    dim('   chain   — next 5 words deal +50% damage'),
+    dim(mathMode ? '   mark    — highlight one problem; solving it deals 5× dmg' : '   mark    — highlight one word; destroying it deals 5× dmg'),
+    dim(mathMode ? '   leech   — heal HP per problem solved for 10s' : '   leech   — heal 1 HP per letter typed for 10s'),
+    dim(mathMode ? '   volley  — instantly destroy the 3 easiest problems' : '   volley  — instantly destroy 3 shortest words'),
+    dim(mathMode ? '   chain   — next 5 problems deal +50% damage' : '   chain   — next 5 words deal +50% damage'),
     dim('   smite   — deal 8 × current combo as flat damage'),
     '',
     wh('   combo'),
-    dim('   destroy words in quick succession to build a multiplier'),
+    dim(mathMode ? '   solve problems in quick succession to build a multiplier' : '   destroy words in quick succession to build a multiplier'),
     dim('   ×1.25 at x3  ·  ×1.50 at x6  ·  ×2.00 at x10'),
     dim('   taking damage resets the combo'),
     '',
