@@ -16,7 +16,7 @@
     * { margin:0; padding:0; box-sizing:border-box; }
     body { background:#f8f5f0; display:flex; justify-content:center; align-items:center; height:100vh; overflow:hidden; }
     #game {
-      width:800px; height:520px;
+      width:800px; height:520px; flex-shrink:0;
       font-family:'Menlo','Monaco','Cascadia Code','Consolas','Courier New',monospace;
       font-size:13px; line-height:1.6;
       color:#4a4a4a; background:#f8f5f0;
@@ -67,7 +67,9 @@
       #mobile-wall .body  { color: #a8a8a8; }
       #mobile-wall .muted { color: #555555; }
     }
-    @media (max-width: 860px), (pointer: coarse) {
+    /* Only block touch-only devices (phones/tablets). Desktops with a small or
+       zoomed window get the game scaled down to fit instead. */
+    @media (hover: none) and (pointer: coarse) {
       #mobile-wall { display: flex; }
     }
     html.ipad #mobile-wall { display: none !important; }
@@ -2204,14 +2206,17 @@ window.addEventListener('keydown', e => {
   processKey(key);
 });
 
+// Scale the fixed 800×520 game to the window: fill the screen on /ipad,
+// otherwise only shrink it when the window is too small (never enlarge)
+const fitGame = () => {
+  let s = Math.min(window.innerWidth / W, window.innerHeight / H);
+  if (!window.IPAD_MODE) s = Math.min(1, s);
+  document.getElementById('game').style.transform = s === 1 ? '' : 'scale(' + s + ')';
+};
+fitGame();
+window.addEventListener('resize', fitGame);
+
 if (window.IPAD_MODE) {
-  // Scale the fixed 800×520 game to fill the screen
-  const fitGame = () => {
-    const s = Math.min(window.innerWidth / W, window.innerHeight / H);
-    document.getElementById('game').style.transform = 'scale(' + s + ')';
-  };
-  fitGame();
-  window.addEventListener('resize', fitGame);
   // Small hint for the Esc stand-in, bottom-left so it doesn't crowd the version label
   const escHint = document.createElement('span');
   escHint.textContent = '` = esc';
