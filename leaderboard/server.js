@@ -55,12 +55,17 @@ const getDailyTop = db.prepare(`
   SELECT name, score, class, difficulty, floor, outcome, dmg, words, accuracy, submitted_at
   FROM scores WHERE mode = 'daily' AND challenge_date = ? ORDER BY score DESC LIMIT 20
 `);
+const getMathTop = db.prepare(`
+  SELECT name, score, class, difficulty, floor, outcome, dmg, words, accuracy, submitted_at
+  FROM scores WHERE mode = 'math' ORDER BY score DESC LIMIT 20
+`);
 const insertScore = db.prepare(`
   INSERT INTO scores (name, score, class, difficulty, floor, outcome, dmg, words, accuracy, submitted_at, mode, challenge_date)
   VALUES (@name, @score, @class, @difficulty, @floor, @outcome, @dmg, @words, @accuracy, @submitted_at, @mode, @challenge_date)
 `);
 const getRank = db.prepare(`SELECT COUNT(*) AS rank FROM scores WHERE score > ? AND mode = 'classic'`);
 const getDailyRank = db.prepare(`SELECT COUNT(*) AS rank FROM scores WHERE score > ? AND mode = 'daily' AND challenge_date = ?`);
+const getMathRank = db.prepare(`SELECT COUNT(*) AS rank FROM scores WHERE score > ? AND mode = 'math'`);
 
 // ── Rate limiting ─────────────────────────────────────────────────────────────
 const lastSubmit = new Map();     // ip → timestamp (classic, 1/min)
@@ -83,6 +88,8 @@ app.get('/leaderboard', (req, res) => {
   const date = req.query.date || '';
   if (mode === 'daily' && date) {
     res.json(getDailyTop.all(date));
+  } else if (mode === 'math') {
+    res.json(getMathTop.all());
   } else {
     res.json(getTop.all());
   }
@@ -119,7 +126,7 @@ app.post('/leaderboard', (req, res) => {
     return res.status(400).json({ error: 'Invalid outcome.' });
   if (outcome === 'victory' && floor !== 3)
     return res.status(400).json({ error: 'Invalid floor for victory.' });
-  if (!['classic', 'daily'].includes(mode))
+  if (!['classic', 'daily', 'math'].includes(mode))
     return res.status(400).json({ error: 'Invalid mode.' });
   if (mode === 'daily' && !/^\d{4}-\d{2}-\d{2}$/.test(challenge_date))
     return res.status(400).json({ error: 'Invalid challenge_date.' });
@@ -147,9 +154,9 @@ app.post('/leaderboard', (req, res) => {
     challenge_date,
   });
 
-  const rank = mode === 'daily'
-    ? getDailyRank.get(score, challenge_date).rank + 1
-    : getRank.get(score).rank + 1;
+  const rank = mode === 'daily' ? getDailyRank.get(score, challenge_date).rank + 1
+             : mode === 'math'  ? getMathRank.get(score).rank + 1
+             : getRank.get(score).rank + 1;
   res.json({ rank });
 });
 
