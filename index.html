@@ -5,11 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>TYPEROGUE</title>
   <script>
-    // /ipad: same game, but for iPads with a hardware keyboard (no mobile wall, scaled to fit)
-    window.IPAD_MODE = /^\/ipad\/?$/.test(location.pathname);
+    // iPad mode: same game, but no mobile wall and scaled to fit, for iPads with a hardware keyboard.
+    // Older iPads say "iPad" in the user agent. Since iPadOS 13, Safari claims to be a Mac,
+    // so we also count a "Macintosh" with a touch screen (real Macs report 0 touch points).
+    // /ipad still forces it on, in case detection ever misses.
+    window.IPAD_MODE = /iPad/.test(navigator.userAgent)
+      || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1)
+      || /^\/ipad\/?$/.test(location.pathname);
     if (window.IPAD_MODE) document.documentElement.classList.add('ipad');
-    // /math (or ?math): times-tables mode — type the answers to 1–12 multiplication problems
-    window.MATH_MODE = /^\/math\/?$/.test(location.pathname) || new URLSearchParams(location.search).has('math');
   </script>
   <script defer src="/_vercel/insights/script.js"></script>
   <style>
@@ -315,8 +318,7 @@ let titleParticles = [];
 let codexScroll = 0, instructionsScroll = 0;
 let nameEntry = '', nameEntrySubmitting = false, nameEntryError = '', nameEntryRank = null;
 let lbData = null, lbLoading = false, lbError = '';
-let lbTab = 'classic'; // 'classic' | 'daily' | 'math'
-let lbMathData = null, lbMathLoading = false, lbMathError = '';
+let lbTab = 'classic'; // 'classic' | 'daily'
 let lbDailyData = null, lbDailyLoading = false, lbDailyError = '';
 let dailyMode = false, dailyConfig = null, dailyDate = '';
 
@@ -340,10 +342,8 @@ function seedFromDate(s) {
   return h >>> 0;
 }
 const DAILY_MODIFIERS = [
-  { id:'short_words', label:'SHORT WORDS', desc:'max 5-letter words',
-    mathLabel:'EASY FACTS', mathDesc:'easy facts only (up to 7s)' },
-  { id:'long_words',  label:'LONG WORDS',  desc:'min 6-letter words',
-    mathLabel:'HARD FACTS', mathDesc:'hard facts only (8s, 9s, 12s)' },
+  { id:'short_words', label:'SHORT WORDS', desc:'max 5-letter words'  },
+  { id:'long_words',  label:'LONG WORDS',  desc:'min 6-letter words'  },
   { id:'fragile',     label:'FRAGILE',     desc:'50% max HP'          },
   { id:'ironman',     label:'IRONMAN',     desc:'no healing in shops' },
   { id:'no_spells',   label:'SPELLLESS',   desc:'spells disabled'     },
@@ -400,7 +400,7 @@ function calcScore() {
 }
 
 function beginNameEntry() {
-  if (dailyMode && !mathMode && localStorage.getItem('tr_daily_' + dailyDate)) {
+  if (dailyMode && localStorage.getItem('tr_daily_' + dailyDate)) {
     // Already submitted today — skip to run summary
     runSummaryScroll = 0;
     G.screen = 'run_summary';
@@ -425,9 +425,8 @@ async function submitScore() {
   const floor = Math.min(P.floor || 1, 3);
   const outcome = G.runOutcome || 'defeat';
   const score = calcScore();
-  // Times-tables runs aren't comparable to word runs, so they go on their own board
-  const mode = mathMode ? 'math' : dailyMode ? 'daily' : 'classic';
-  const challengeDate = mode === 'daily' ? dailyDate : '';
+  const mode = dailyMode ? 'daily' : 'classic';
+  const challengeDate = dailyMode ? dailyDate : '';
   const sig = await signPayload(name, score, P.classId, diffName, floor, outcome, mode, challengeDate);
   const payload = {
     name, score,
@@ -450,7 +449,7 @@ async function submitScore() {
     if (!res.ok) { nameEntryError = data.error || 'Submission failed.'; }
     else {
       localStorage.setItem('tr_player_name', name.toUpperCase().slice(0, 20));
-      if (mode === 'daily') localStorage.setItem('tr_daily_' + dailyDate, String(score));
+      if (dailyMode) localStorage.setItem('tr_daily_' + dailyDate, String(score));
       nameEntryRank = data.rank;
     }
   } catch (e) {
@@ -480,24 +479,6 @@ async function fetchDailyLeaderboard() {
     lbDailyError = 'Could not reach leaderboard server.';
   }
   lbDailyLoading = false;
-}
-
-async function fetchMathLeaderboard() {
-  lbMathLoading = true; lbMathError = ''; lbMathData = null;
-  try {
-    const res = await fetch(LEADERBOARD_URL + '?mode=math');
-    if (!res.ok) throw new Error('Server error');
-    lbMathData = await res.json();
-  } catch (e) {
-    lbMathError = 'Could not reach leaderboard server.';
-  }
-  lbMathLoading = false;
-}
-const LB_TABS = ['classic', 'daily', 'math'];
-function fetchLbTab() {
-  if (lbTab === 'daily') fetchDailyLeaderboard();
-  else if (lbTab === 'math') fetchMathLeaderboard();
-  else fetchLeaderboard();
 }
 
 const COMBO_WINDOW = 1500; // ms; rogue class gets 2000ms
@@ -542,42 +523,6 @@ function pickWord() {
   const onScreen = new Set(words.map(w => w.text));
   const fresh = pool.filter(w => !onScreen.has(w));
   return rnd(fresh.length ? fresh : pool) || 'bash';
-}
-
-// ── Times tables (math mode) ───────────────────────────────────────────────────
-// Each "word" is a multiplication fact: w.text is the answer you type, w.display is the problem.
-let mathMode = !!window.MATH_MODE;
-const MATH_FACTS = (() => {
-  const facts = [];
-  for (let a = 1; a <= 12; a++) for (let b = a; b <= 12; b++) {
-    // a <= b. Easy: 1s, 2s, 10s, 11s up to 9, and everything up to 5×5.
-    const easy = a <= 2 || b <= 5 || a === 10 || b === 10 || (b === 11 && a <= 9);
-    // Otherwise bucket by the bigger factor: up to 7s, 8s/9s, then 11s/12s
-    const tier = easy ? 0 : b <= 7 ? 1 : b <= 9 ? 2 : 3;
-    facts.push({ a, b, ans: String(a * b), tier });
-  }
-  return facts;
-})();
-// Same 0–3 tiers enemies use for words, so floor 1 sees easy facts and floor 3 the 8s, 9s and 12s
-const MATH_TIERS = [0, 1, 2, 3].map(t => MATH_FACTS.filter(f => f.tier === t));
-// Damage "length" of a problem — stands in for word length so harder facts hit harder
-function mathLen(f) { return 3 + f.ans.length + f.tier; }
-// Effective length of any on-screen word (letters in word mode, mathLen in math mode)
-function wLen(w) { return w.len || w.text.length; }
-
-// Pick a fact whose answer can't be confused with anything on screen
-// (no answer may be a prefix of another, or typing "5" would be ambiguous with "56")
-function pickMathFact(tierIdxs) {
-  let pool = [];
-  tierIdxs.forEach(t => pool.push(...MATH_TIERS[Math.min(t, 3)]));
-  if (hasModifier('short_words')) pool = pool.filter(f => f.tier <= 1);
-  if (hasModifier('long_words'))  pool = pool.filter(f => f.tier >= 2);
-  const onScreen = words.map(w => w.text);
-  const fresh = pool.filter(f => !onScreen.some(t => t.startsWith(f.ans) || f.ans.startsWith(t)));
-  if (!fresh.length) return null;
-  const f = rnd(fresh);
-  const [x, y] = Math.random() < 0.5 ? [f.a, f.b] : [f.b, f.a];
-  return { text: f.ans, display: x + '×' + y, len: mathLen(f) };
 }
 
 // ── Map generation ─────────────────────────────────────────────────────────────
@@ -837,17 +782,8 @@ function spawnCombatWord(isAttack) {
   }
   const isInvis = enemy.special === 'invisible' && !isAttack && (invisWordCount % 3 === 2);
   if (enemy.special === 'invisible') invisWordCount++;
-  let txt, display, len;
-  if (mathMode) {
-    // Attacks pull from the hardest tier this enemy uses
-    const tiers = enemy.wordTiers || [0, 1];
-    const prob = pickMathFact(isAttack ? [tiers[tiers.length - 1]] : tiers);
-    if (!prob) return;
-    ({ text: txt, display, len } = prob);
-  } else {
-    const atkWords = RD.attackWords[enemy.floor] || RD.attackWords[1];
-    txt = isAttack ? rnd(atkWords) : pickWord();
-  }
+  const atkWords = RD.attackWords[enemy.floor] || RD.attackWords[1];
+  const txt = isAttack ? rnd(atkWords) : pickWord();
 
   // Pick the least-crowded lane near the top, then stagger y above any existing word
   const MIN_GAP = 48;
@@ -862,8 +798,8 @@ function spawnCombatWord(isAttack) {
   const spawnY = Math.min(WORD_SPAWN_Y, topY - MIN_GAP);
 
   words.push({
-    text:txt, display, len, x:LANE_X[lane] + (Math.random()-0.5)*50,
-    y:spawnY, speed:enemy.effectiveSpeed * (hasModifier('speed_up') ? 1.4 : 1.0) * (mathMode ? 0.8 : 1.0),
+    text:txt, x:LANE_X[lane] + (Math.random()-0.5)*50,
+    y:spawnY, speed:enemy.effectiveSpeed * (hasModifier('speed_up') ? 1.4 : 1.0),
     isAttack:!!isAttack, invisible:!!isInvis, invisBlinkTimer:isInvis ? 800 : 0,
   });
   updateActiveWord();
@@ -882,17 +818,10 @@ const PICKUP_EFFECTS = [
 function spawnPickup() {
   const eff = PICKUP_EFFECTS[Math.floor(Math.random() * PICKUP_EFFECTS.length)];
   const len = Math.random() < 0.5 ? 2 : 3;
-  let sym = '', display;
-  if (mathMode) {
-    // In math mode pickups are easy facts instead of symbols
-    const prob = pickMathFact([0]);
-    if (!prob) return;
-    sym = prob.text; display = prob.display;
-  } else {
-    for (let i = 0; i < len; i++) sym += PICKUP_SYMS[Math.floor(Math.random() * PICKUP_SYMS.length)];
-  }
+  let sym = '';
+  for (let i = 0; i < len; i++) sym += PICKUP_SYMS[Math.floor(Math.random() * PICKUP_SYMS.length)];
   words.push({
-    text:sym, display, x:LANE_X[Math.floor(Math.random()*3)] + (Math.random()-0.5)*40,
+    text:sym, x:LANE_X[Math.floor(Math.random()*3)] + (Math.random()-0.5)*40,
     y:WORD_SPAWN_Y, speed:9, isAttack:false, invisible:false, invisBlinkTimer:0,
     isPickup:true, pickupEffect:eff,
   });
@@ -937,12 +866,12 @@ function destroyWord(idx) {
     return;
   }
 
-  let dmg = Math.ceil(wLen(w) * P.dmgMult);
-  if (P.longshot && wLen(w) >= 8) dmg *= 3;
+  let dmg = Math.ceil(w.text.length * P.dmgMult);
+  if (P.longshot && w.text.length >= 8) dmg *= 3;
   if (P.upgrades && P.upgrades.includes('dk_chaos')) dmg *= 2;
   if (P.berserk  && P.hp < P.maxHp * 0.3) dmg = Math.ceil(dmg * 1.75);
   if (P.warAxe   && P.hp < P.maxHp * 0.4) dmg = Math.ceil(dmg * 2.0);
-  if (P.classId === 'ranger' && wLen(w) >= 6) dmg = Math.ceil(dmg * 1.75);
+  if (P.classId === 'ranger' && w.text.length >= 6) dmg = Math.ceil(dmg * 1.75);
   if (P.classId === 'necromancer' && w.isAttack) {
     dmg = Math.ceil(dmg * 2);
     P.hp = Math.min(P.maxHp, P.hp + 6);
@@ -983,7 +912,7 @@ function destroyWord(idx) {
   lastWordDmg = dmg;
   RunStats.wordsDestroyed++;
   RunStats.dmgDealt += dmg;
-  if (!mathMode && w.text.length >= 10) unlockAchievement('lexicographer');
+  if (w.text.length >= 10) unlockAchievement('lexicographer');
   if (dmg >= 100) unlockAchievement('overkill');
   if (RunStats.wordsDestroyed >= 150) unlockAchievement('wordsmith');
   RA.playWordDestroy(); RA.playEnemyHit();
@@ -996,7 +925,7 @@ function destroyWord(idx) {
     spawnFloat(W/2 + 20, WORD_EXIT_Y - 20, `+${vheal}`, C.txt);
   }
   if (leechTimer > 0) {
-    const lheal = wLen(w) * ((P.spellStacks && P.spellStacks['leech']) || 1);
+    const lheal = w.text.length * ((P.spellStacks && P.spellStacks['leech']) || 1);
     P.hp = Math.min(P.maxHp, P.hp + lheal);
     spawnFloat(W/2 - 20, WORD_EXIT_Y - 20, `+${lheal}`, C.cyan);
   }
@@ -1050,7 +979,7 @@ function activateSpell(spellIdx) {
         RunStats.dmgDealt += ed;
         spawnFloat(W/2, H/2, `ECHO -${ed}`, C.gold);
       } else {
-        spawnFloat(W/2, H/2, mathMode ? 'ECHO (nothing solved yet)' : 'ECHO (no word yet)', C.dim);
+        spawnFloat(W/2, H/2, 'ECHO (no word yet)', C.dim);
       }
       break;
     }
@@ -1066,7 +995,7 @@ function activateSpell(spellIdx) {
         markedWordText = target.text;
         spawnFloat(W/2, 160, 'MARK!', C.gold);
       } else {
-        spawnFloat(W/2, 160, mathMode ? 'MARK (no problems)' : 'MARK (no words)', C.dim);
+        spawnFloat(W/2, 160, 'MARK (no words)', C.dim);
       }
       break;
     }
@@ -1075,12 +1004,12 @@ function activateSpell(spellIdx) {
       const vcount = stacks >= 3 ? 7 : stacks >= 2 ? 5 : 3;
       const targets = words
         .filter(w => !w.isAttack && !w.isPickup)
-        .sort((a, b) => wLen(a) - wLen(b))
+        .sort((a, b) => a.text.length - b.text.length)
         .slice(0, vcount);
       const activeWord = activeWordIdx >= 0 ? words[activeWordIdx] : null;
       let vtotal = 0;
       for (const t of targets) {
-        const vd = Math.ceil(wLen(t) * P.dmgMult * amp);
+        const vd = Math.ceil(t.text.length * P.dmgMult * amp);
         enemy.hp = Math.max(0, enemy.hp - vd);
         vtotal += vd;
         spawnFloat(t.x, t.y - 20, `-${vd}`, C.hi);
@@ -1163,7 +1092,7 @@ function startRun(classId) {
   if (hasModifier('fragile')) { P.hp = Math.round(P.hp * 0.5); P.maxHp = Math.round(P.maxHp * 0.5); }
   if (cls.startSpell && !hasModifier('no_spells')) { P.spells.push(cls.startSpell); P.spellCDs.push(0); P.spellStacks[cls.startSpell] = 1; }
   RunStats = { wordsDestroyed:0, dmgDealt:0, totalKeys:0, correctKeys:0, startTime:Date.now(), goldEarned:0, pickups:0, spellsCast:0, shopSpent:0, newAchievements:[] };
-  track('run_start', { class: classId, difficulty: DIFFICULTIES[diffIdx].id, math: mathMode });
+  track('run_start', { class: classId, difficulty: DIFFICULTIES[diffIdx].id });
   buildMap(); RA.setTheme('dungeon'); G.screen = 'map';
 }
 
@@ -1260,21 +1189,15 @@ function applyEventOption(opt) {
 }
 
 // ── Input ──────────────────────────────────────────────────────────────────────
-const MATH_SPELL_KEYS = ['q', 'w', 'e'];
-// Upgrade description, using the math-mode wording when it has one
-function upgDesc(u) { return (mathMode && u.mathDesc) || u.desc; }
-function spellKeyLabel(i) { return mathMode ? MATH_SPELL_KEYS[i].toUpperCase() : String(i + 1); }
-
 function processKey(key) {
   if (G.screen === 'title') {
     if (key === 'Enter') { dailyMode = false; G.screen = 'class_select'; RA.startMusic('dungeon'); }
     if (key === 'l' || key === 'L') { darkMode = !darkMode; applyTheme(); }
     if (key === 'i' || key === 'I') { instructionsScroll = 0; G.screen = 'instructions'; }
     if (key === 'a' || key === 'A') { achievementsScroll = 0; G.screen = 'achievements'; }
-    if (key === 'g' || key === 'G') { lbTab = mathMode ? 'math' : 'classic'; G.screen = 'leaderboard'; fetchLbTab(); }
+    if (key === 'g' || key === 'G') { lbTab = 'classic'; G.screen = 'leaderboard'; fetchLeaderboard(); }
     if (key === 'c' || key === 'C') { codexScroll = 0; G.screen = 'codex'; }
     if (key === 'd' || key === 'D') { RA.startMusic('dungeon'); startDailyRun(); }
-    if (key === 'x' || key === 'X') { mathMode = !mathMode; }
     return;
   }
   if (G.screen === 'codex') {
@@ -1287,9 +1210,9 @@ function processKey(key) {
   }
   if (G.screen === 'leaderboard') {
     if (key === 'ArrowLeft' || key === 'ArrowRight') {
-      const step = key === 'ArrowRight' ? 1 : LB_TABS.length - 1;
-      lbTab = LB_TABS[(LB_TABS.indexOf(lbTab) + step) % LB_TABS.length];
-      fetchLbTab();
+      lbTab = lbTab === 'classic' ? 'daily' : 'classic';
+      if (lbTab === 'daily') fetchDailyLeaderboard();
+      else fetchLeaderboard();
     }
     if (key === 'Escape' || key === 'Enter') { dailyMode = false; G.screen = 'title'; }
     return;
@@ -1372,8 +1295,7 @@ function processKey(key) {
       return;
     }
     if (P.spells && P.spells.length > 0) {
-      // Math mode needs the digits for answers, so spells move to Q / W / E
-      const si = mathMode ? MATH_SPELL_KEYS.indexOf(key.toLowerCase()) : parseInt(key) - 1;
+      const si = parseInt(key) - 1;
       if (si >= 0 && si < P.spells.length) { activateSpell(si); return; }
     }
     if (key === 'Backspace') { typed = typed.slice(0, -1); updateActiveWord(); return; }
@@ -1485,17 +1407,14 @@ function renderTitle() {
   if (!titleParticles.length) initTitleParticles();
   const blink = Math.floor(titleTick / 35) % 2 === 0;
   titleTick++;
-  const instr1 = mathMode
-    ? 'type the answers to times tables (1–12)  —  survive all 3 floors'
-    : 'type words to destroy enemies  —  survive all 3 floors';
+  const instr1 = 'type words to destroy enemies  —  survive all 3 floors';
   const best = bestRunLine();
   screen.innerHTML = [
-    '', '', '', '',
+    '', '', '', '', '',
     wh('TYPEROGUE'),
     '',
     dim('a typing roguelike'),
-    mathMode ? sp('× TIMES TABLES ×', C.gold) : '',
-    '',
+    '', '',
     blink ? wh('PRESS ENTER TO BEGIN') : '',
     '', '',
     dim(instr1),
@@ -1503,13 +1422,12 @@ function renderTitle() {
     best ? dim('best: ' + best) : '',
     '', '', '',
     dim('[I] instructions  ·  [A] achievements  ·  [C] codex'),
-    dim('[G] rankings  ·  [L] ' + (darkMode ? 'light mode' : 'dark mode') + '  ·  [X] times tables: ' + (mathMode ? 'on' : 'off')),
-    dim('by joe accardi'),
+    dim('[G] rankings  ·  [L] ' + (darkMode ? 'light mode' : 'dark mode') + '  ·  by joe accardi'),
     '',
     (() => {
       const dc = getDailyConfig(dailyDateStr());
       const alreadyPlayed = !!localStorage.getItem('tr_daily_' + dailyDateStr());
-      const modStr = dc.mods.map(m => ((mathMode && m.mathLabel) || m.label).toLowerCase()).join('  ·  ');
+      const modStr = dc.mods.map(m => m.label.toLowerCase()).join('  ·  ');
       const label = '[D] daily  ·  ' + dc.classId + '  ·  ' + modStr + (alreadyPlayed ? '  ·  played' : '');
       return alreadyPlayed ? dim(label) : wh(label);
     })(),
@@ -1657,7 +1575,7 @@ function renderCombat() {
     ? '\n' + P.spells.map((s, i) => {
         const cd = P.spellCDs[i] || 0;
         const lv = (P.spellStacks && P.spellStacks[s] > 1) ? ' Lv' + P.spellStacks[s] : '';
-        return sp('[' + spellKeyLabel(i) + ']' + s + lv + (cd > 0 ? ' '+(cd/1000).toFixed(1)+'s' : ''), cd > 0 ? C.dim : C.txt);
+        return sp('[' + (i+1) + ']' + s + lv + (cd > 0 ? ' '+(cd/1000).toFixed(1)+'s' : ''), cd > 0 ? C.dim : C.txt);
       }).join('   ')
     : '';
 
@@ -1715,15 +1633,6 @@ function renderCombat() {
     const tLen = isActive ? typed.length : 0;
     let inner = '';
 
-    if (w.display) {
-      // Math problem: show "7×8=" then the digits typed so far (or "?")
-      const color = w.isAttack ? C.red : w.marked ? C.gold : isActive ? C.hi : C.txt;
-      inner = sp(w.display + '=', color) + (tLen > 0 ? sp(typed, C.white) : sp('?', C.dim));
-      if (w.isPickup) inner += '<br>' + sp(w.pickupEffect.label, w.pickupEffect.color);
-      wHtml += `<span class="w" style="left:${w.x}px;top:${w.y}px">${inner}</span>`;
-      return;
-    }
-
     if (w.isPickup) {
       const eff = w.pickupEffect;
       const blink = Math.floor(Date.now() / 400) % 2 === 0;
@@ -1760,7 +1669,7 @@ function renderUpgrade() {
     const prefix = sel ? '>' : ' ';
     lines.push(sp(prefix + ' [' + (i+1) + '] ' + typeIcon + ' ' + u.name, sel ? C.white : rarCol));
     lines.push(dim('      ' + u.rarity + ' ' + u.type));
-    lines.push(sp('      ' + upgDesc(u), sel ? C.txt : C.dim));
+    lines.push(sp('      ' + u.desc, sel ? C.txt : C.dim));
     lines.push('');
   });
   lines.push(!upgradeChosen ? dim('   ^ v navigate    ENTER confirm    1 2 3 shortcut') : sp('   ...', C.gold));
@@ -1799,7 +1708,7 @@ function renderShop() {
     const costStr = item.owned ? dim('OWNED') : sp('¢' + item.cost, canBuy ? C.gold : C.red);
     lines.push(sp(prefix + u.name, item.owned ? C.dim : C.white) + '    ' + costStr);
     lines.push(dim('  ' + u.rarity + ' · ' + u.type));
-    lines.push(sp('  ' + upgDesc(u), C.dim));
+    lines.push(sp('  ' + u.desc, C.dim));
     lines.push('');
   });
   lines.push(dim('   ^ v navigate  ENTER buy  ESC leave'));
@@ -1945,7 +1854,7 @@ function renderCodex() {
     const rarCol = RD.rarityColor[u.rarity] || C.txt;
     const cdSec = (u.cd / 1000).toFixed(0) + 's';
     lines.push(sp('   ' + u.name, rarCol) + '   ' + dim(u.rarity + '  ·  CD: ' + cdSec));
-    lines.push('   ' + sp(upgDesc(u).replace(/\s*\(CD:[^)]+\)/, ''), C.txt));
+    lines.push('   ' + sp(u.desc.replace(/\s*\(CD:[^)]+\)/, ''), C.txt));
     lines.push('');
   });
   while (lines.length < 20) lines.push('');
@@ -1991,15 +1900,14 @@ function renderNameEntry() {
 function renderLeaderboard() {
   const classicTab = lbTab === 'classic' ? wh('[ CLASSIC ]') : dim('  CLASSIC  ');
   const dailyTab   = lbTab === 'daily'   ? wh('[ DAILY CHALLENGE ]') : dim('  DAILY CHALLENGE  ');
-  const mathTab    = lbTab === 'math'    ? wh('[ TIMES TABLES ]') : dim('  TIMES TABLES  ');
   const lines = ['', wh('   GLOBAL RANKINGS'), dim('   trinacria.ddns.net'), ''];
-  lines.push('   ' + classicTab + '   ' + dailyTab + '   ' + mathTab);
+  lines.push('   ' + classicTab + '   ' + dailyTab);
   lines.push(dim('   ' + '─'.repeat(60)));
   lines.push('');
 
   if (lbTab === 'daily') {
     const dc = getDailyConfig(dailyDateStr());
-    const modStr = dc.mods.map(m => (mathMode && m.mathDesc) || m.desc).join('  ·  ');
+    const modStr = dc.mods.map(m => m.desc).join('  ·  ');
     lines.push(dim('   ' + dailyDateStr() + '  ·  ' + dc.classId + '  ·  ' + modStr));
     lines.push('');
     const data = lbDailyData, loading = lbDailyLoading, err = lbDailyError;
@@ -2023,20 +1931,16 @@ function renderLeaderboard() {
       });
     }
   } else {
-    const isMath = lbTab === 'math';
-    const rows    = isMath ? lbMathData    : lbData;
-    const loading = isMath ? lbMathLoading : lbLoading;
-    const err     = isMath ? lbMathError   : lbError;
-    if (loading) {
+    if (lbLoading) {
       lines.push(dim('   loading...'));
-    } else if (err) {
-      lines.push(sp('   ' + err, C.red));
-    } else if (!rows || rows.length === 0) {
+    } else if (lbError) {
+      lines.push(sp('   ' + lbError, C.red));
+    } else if (!lbData || lbData.length === 0) {
       lines.push(dim('   no scores yet — be the first!'));
     } else {
       lines.push(dim('   # ' + '  NAME                SCORE      CLASS     DIFF    FLOOR'));
       lines.push(dim('   ' + '─'.repeat(60)));
-      rows.forEach((e, i) => {
+      lbData.forEach((e, i) => {
         const rank  = String(i + 1).padEnd(2);
         const name  = e.name.padEnd(20);
         const score = String(e.score.toLocaleString()).padEnd(10);
@@ -2113,11 +2017,7 @@ function renderDifficultySelect() {
   const tabs = DIFFICULTIES.map((df, i) =>
     i === diffIdx ? wh('[ ' + df.label + ' ]') : dim('  ' + df.label + '  ')
   ).join('   ');
-  const desc = mathMode ? {
-    beginner: 'slower problems  ·  fewer on screen  ·  lower enemy hp  ·  more gold',
-    normal:   'the intended experience',
-    hard:     'faster problems  ·  more on screen  ·  tougher enemies  ·  less gold',
-  } : {
+  const desc = {
     beginner: 'slower words  ·  lower enemy hp  ·  more gold  ·  great for new players',
     normal:   'the intended experience',
     hard:     'faster words  ·  tougher enemies  ·  less gold  ·  no mercy',
@@ -2145,32 +2045,32 @@ function renderInstructions() {
     dim('   ' + '─'.repeat(40)),
     '',
     wh('   combat'),
-    dim(mathMode ? '   type the answers to the problems drifting down the screen' : '   type the words drifting across the screen to deal damage'),
-    dim(mathMode ? '   harder problems = more damage' : '   longer words = more damage'),
-    dim(mathMode ? '   red problems are enemy attacks — solve them to block' : '   red words are enemy attacks — type them to block'),
-    dim(mathMode ? '   blinking problems with a bonus label are pickups' : '   symbols (!@#$%) are pickups — type them for bonuses'),
+    dim('   type the words drifting across the screen to deal damage'),
+    dim('   longer words = more damage'),
+    dim('   red words are enemy attacks — type them to block'),
+    dim('   symbols (!@#$%) are pickups — type them for bonuses'),
     '',
     wh('   spells'),
-    dim(mathMode ? '   press Q / W / E to cast a spell (if you have one)' : '   press 1-3 to cast a spell (if you have one)'),
+    dim('   press 1-3 to cast a spell (if you have one)'),
     dim('   acquiring the same spell again raises its level (max Lv3)'),
-    dim(mathMode ? '   freeze  — stops all problems for 3s' : '   freeze  — stops all words for 3s'),
+    dim('   freeze  — stops all words for 3s'),
     dim('   shield  — absorbs incoming damage'),
-    dim(mathMode ? '   nova    — damages enemy for each problem on screen' : '   nova    — damages enemy for each word on screen'),
-    dim(mathMode ? '   haste   — slows problems 40% for 5s' : '   haste   — slows words 40% for 5s'),
+    dim('   nova    — damages enemy for each word on screen'),
+    dim('   haste   — slows words 40% for 5s'),
     dim('   drain   — deals damage and heals you'),
     dim('   blast   — heavy single hit'),
-    dim(mathMode ? '   echo    — repeat last solved problem\'s damage for free' : '   echo    — repeat last destroyed word\'s damage for free'),
-    dim(mathMode ? '   slow    — problems crawl at 20% speed for 4s' : '   slow    — words crawl at 20% speed for 4s'),
-    dim(mathMode ? '   reave   — next problem deals 3× damage' : '   reave   — next word deals 3× damage'),
+    dim('   echo    — repeat last destroyed word\'s damage for free'),
+    dim('   slow    — words crawl at 20% speed for 4s'),
+    dim('   reave   — next word deals 3× damage'),
     dim('   ward    — block all enemy attacks for 5s'),
-    dim(mathMode ? '   mark    — highlight one problem; solving it deals 5× dmg' : '   mark    — highlight one word; destroying it deals 5× dmg'),
-    dim(mathMode ? '   leech   — heal HP per problem solved for 10s' : '   leech   — heal 1 HP per letter typed for 10s'),
-    dim(mathMode ? '   volley  — instantly destroy the 3 easiest problems' : '   volley  — instantly destroy 3 shortest words'),
-    dim(mathMode ? '   chain   — next 5 problems deal +50% damage' : '   chain   — next 5 words deal +50% damage'),
+    dim('   mark    — highlight one word; destroying it deals 5× dmg'),
+    dim('   leech   — heal 1 HP per letter typed for 10s'),
+    dim('   volley  — instantly destroy 3 shortest words'),
+    dim('   chain   — next 5 words deal +50% damage'),
     dim('   smite   — deal 8 × current combo as flat damage'),
     '',
     wh('   combo'),
-    dim(mathMode ? '   solve problems in quick succession to build a multiplier' : '   destroy words in quick succession to build a multiplier'),
+    dim('   destroy words in quick succession to build a multiplier'),
     dim('   ×1.25 at x3  ·  ×1.50 at x6  ·  ×2.00 at x10'),
     dim('   taking damage resets the combo'),
     '',
@@ -2239,8 +2139,10 @@ window.addEventListener('resize', fitGame);
 
 if (window.IPAD_MODE) {
   // Small hint for the Esc stand-in, bottom-left so it doesn't crowd the version label
+  // There's no way to detect a keyboard before it's used, so remind until the first key press
   const escHint = document.createElement('span');
-  escHint.textContent = '` = esc';
+  escHint.textContent = 'keyboard required  ·  ` = esc';
+  window.addEventListener('keydown', () => { escHint.textContent = '` = esc'; }, { once: true });
   escHint.style.cssText = 'position:absolute;bottom:14px;left:18px;font-size:13px;z-index:10;pointer-events:none;opacity:0.6;';
   document.getElementById('game').appendChild(escHint);
   // iOS only starts audio after a tap; the first tap wakes it up
