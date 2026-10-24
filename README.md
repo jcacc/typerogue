@@ -109,7 +109,7 @@ Same game, but instead of words you get multiplication problems from 1Ã—1 to 12Ã
 - Problems fall 20% slower to leave thinking time
 - Answers on screen never overlap (you won't see `6` and `64` at the same time)
 - Pickups are easy problems instead of symbols
-- Math runs have their own global leaderboard (the TIMES TABLES tab in rankings)
+- Math runs skip the global leaderboard
 
 ## Leaderboard
 
