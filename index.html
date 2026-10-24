@@ -5,8 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>TYPEROGUE</title>
   <script>
-    // /ipad: same game, but for iPads with a hardware keyboard (no mobile wall, scaled to fit)
-    window.IPAD_MODE = /^\/ipad\/?$/.test(location.pathname);
+    // iPad mode: same game, but no mobile wall and scaled to fit, for iPads with a hardware keyboard.
+    // Older iPads say "iPad" in the user agent. Since iPadOS 13, Safari claims to be a Mac,
+    // so we also count a "Macintosh" with a touch screen (real Macs report 0 touch points).
+    // /ipad still forces it on, in case detection ever misses.
+    window.IPAD_MODE = /iPad/.test(navigator.userAgent)
+      || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1)
+      || /^\/ipad\/?$/.test(location.pathname);
     if (window.IPAD_MODE) document.documentElement.classList.add('ipad');
   </script>
   <script defer src="/_vercel/insights/script.js"></script>
@@ -2134,8 +2139,10 @@ window.addEventListener('resize', fitGame);
 
 if (window.IPAD_MODE) {
   // Small hint for the Esc stand-in, bottom-left so it doesn't crowd the version label
+  // There's no way to detect a keyboard before it's used, so remind until the first key press
   const escHint = document.createElement('span');
-  escHint.textContent = '` = esc';
+  escHint.textContent = 'keyboard required  ·  ` = esc';
+  window.addEventListener('keydown', () => { escHint.textContent = '` = esc'; }, { once: true });
   escHint.style.cssText = 'position:absolute;bottom:14px;left:18px;font-size:13px;z-index:10;pointer-events:none;opacity:0.6;';
   document.getElementById('game').appendChild(escHint);
   // iOS only starts audio after a tap; the first tap wakes it up
