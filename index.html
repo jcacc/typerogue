@@ -8,8 +8,6 @@
     // /ipad: same game, but for iPads with a hardware keyboard (no mobile wall, scaled to fit)
     window.IPAD_MODE = /^\/ipad\/?$/.test(location.pathname);
     if (window.IPAD_MODE) document.documentElement.classList.add('ipad');
-    // /math (or ?math): times-tables mode — type the answers to 1–12 multiplication problems
-    window.MATH_MODE = /^\/math\/?$/.test(location.pathname) || new URLSearchParams(location.search).has('math');
   </script>
   <script defer src="/_vercel/insights/script.js"></script>
   <style>
@@ -397,12 +395,6 @@ function calcScore() {
 }
 
 function beginNameEntry() {
-  if (mathMode) {
-    // Times-tables runs aren't comparable to word runs, so they skip the global leaderboard
-    runSummaryScroll = 0;
-    G.screen = 'run_summary';
-    return;
-  }
   if (dailyMode && localStorage.getItem('tr_daily_' + dailyDate)) {
     // Already submitted today — skip to run summary
     runSummaryScroll = 0;
@@ -526,42 +518,6 @@ function pickWord() {
   const onScreen = new Set(words.map(w => w.text));
   const fresh = pool.filter(w => !onScreen.has(w));
   return rnd(fresh.length ? fresh : pool) || 'bash';
-}
-
-// ── Times tables (math mode) ───────────────────────────────────────────────────
-// Each "word" is a multiplication fact: w.text is the answer you type, w.display is the problem.
-let mathMode = !!window.MATH_MODE;
-const MATH_FACTS = (() => {
-  const facts = [];
-  for (let a = 1; a <= 12; a++) for (let b = a; b <= 12; b++) {
-    // a <= b. Easy: 1s, 2s, 10s, 11s up to 9, and everything up to 5×5.
-    const easy = a <= 2 || b <= 5 || a === 10 || b === 10 || (b === 11 && a <= 9);
-    // Otherwise bucket by the bigger factor: up to 7s, 8s/9s, then 11s/12s
-    const tier = easy ? 0 : b <= 7 ? 1 : b <= 9 ? 2 : 3;
-    facts.push({ a, b, ans: String(a * b), tier });
-  }
-  return facts;
-})();
-// Same 0–3 tiers enemies use for words, so floor 1 sees easy facts and floor 3 the 8s, 9s and 12s
-const MATH_TIERS = [0, 1, 2, 3].map(t => MATH_FACTS.filter(f => f.tier === t));
-// Damage "length" of a problem — stands in for word length so harder facts hit harder
-function mathLen(f) { return 3 + f.ans.length + f.tier; }
-// Effective length of any on-screen word (letters in word mode, mathLen in math mode)
-function wLen(w) { return w.len || w.text.length; }
-
-// Pick a fact whose answer can't be confused with anything on screen
-// (no answer may be a prefix of another, or typing "5" would be ambiguous with "56")
-function pickMathFact(tierIdxs) {
-  let pool = [];
-  tierIdxs.forEach(t => pool.push(...MATH_TIERS[Math.min(t, 3)]));
-  if (hasModifier('short_words')) pool = pool.filter(f => f.tier <= 1);
-  if (hasModifier('long_words'))  pool = pool.filter(f => f.tier >= 2);
-  const onScreen = words.map(w => w.text);
-  const fresh = pool.filter(f => !onScreen.some(t => t.startsWith(f.ans) || f.ans.startsWith(t)));
-  if (!fresh.length) return null;
-  const f = rnd(fresh);
-  const [x, y] = Math.random() < 0.5 ? [f.a, f.b] : [f.b, f.a];
-  return { text: f.ans, display: x + '×' + y, len: mathLen(f) };
 }
 
 // ── Map generation ─────────────────────────────────────────────────────────────
@@ -821,17 +777,8 @@ function spawnCombatWord(isAttack) {
   }
   const isInvis = enemy.special === 'invisible' && !isAttack && (invisWordCount % 3 === 2);
   if (enemy.special === 'invisible') invisWordCount++;
-  let txt, display, len;
-  if (mathMode) {
-    // Attacks pull from the hardest tier this enemy uses
-    const tiers = enemy.wordTiers || [0, 1];
-    const prob = pickMathFact(isAttack ? [tiers[tiers.length - 1]] : tiers);
-    if (!prob) return;
-    ({ text: txt, display, len } = prob);
-  } else {
-    const atkWords = RD.attackWords[enemy.floor] || RD.attackWords[1];
-    txt = isAttack ? rnd(atkWords) : pickWord();
-  }
+  const atkWords = RD.attackWords[enemy.floor] || RD.attackWords[1];
+  const txt = isAttack ? rnd(atkWords) : pickWord();
 
   // Pick the least-crowded lane near the top, then stagger y above any existing word
   const MIN_GAP = 48;
@@ -846,8 +793,8 @@ function spawnCombatWord(isAttack) {
   const spawnY = Math.min(WORD_SPAWN_Y, topY - MIN_GAP);
 
   words.push({
-    text:txt, display, len, x:LANE_X[lane] + (Math.random()-0.5)*50,
-    y:spawnY, speed:enemy.effectiveSpeed * (hasModifier('speed_up') ? 1.4 : 1.0) * (mathMode ? 0.8 : 1.0),
+    text:txt, x:LANE_X[lane] + (Math.random()-0.5)*50,
+    y:spawnY, speed:enemy.effectiveSpeed * (hasModifier('speed_up') ? 1.4 : 1.0),
     isAttack:!!isAttack, invisible:!!isInvis, invisBlinkTimer:isInvis ? 800 : 0,
   });
   updateActiveWord();
@@ -866,17 +813,10 @@ const PICKUP_EFFECTS = [
 function spawnPickup() {
   const eff = PICKUP_EFFECTS[Math.floor(Math.random() * PICKUP_EFFECTS.length)];
   const len = Math.random() < 0.5 ? 2 : 3;
-  let sym = '', display;
-  if (mathMode) {
-    // In math mode pickups are easy facts instead of symbols
-    const prob = pickMathFact([0]);
-    if (!prob) return;
-    sym = prob.text; display = prob.display;
-  } else {
-    for (let i = 0; i < len; i++) sym += PICKUP_SYMS[Math.floor(Math.random() * PICKUP_SYMS.length)];
-  }
+  let sym = '';
+  for (let i = 0; i < len; i++) sym += PICKUP_SYMS[Math.floor(Math.random() * PICKUP_SYMS.length)];
   words.push({
-    text:sym, display, x:LANE_X[Math.floor(Math.random()*3)] + (Math.random()-0.5)*40,
+    text:sym, x:LANE_X[Math.floor(Math.random()*3)] + (Math.random()-0.5)*40,
     y:WORD_SPAWN_Y, speed:9, isAttack:false, invisible:false, invisBlinkTimer:0,
     isPickup:true, pickupEffect:eff,
   });
@@ -921,12 +861,12 @@ function destroyWord(idx) {
     return;
   }
 
-  let dmg = Math.ceil(wLen(w) * P.dmgMult);
-  if (P.longshot && wLen(w) >= 8) dmg *= 3;
+  let dmg = Math.ceil(w.text.length * P.dmgMult);
+  if (P.longshot && w.text.length >= 8) dmg *= 3;
   if (P.upgrades && P.upgrades.includes('dk_chaos')) dmg *= 2;
   if (P.berserk  && P.hp < P.maxHp * 0.3) dmg = Math.ceil(dmg * 1.75);
   if (P.warAxe   && P.hp < P.maxHp * 0.4) dmg = Math.ceil(dmg * 2.0);
-  if (P.classId === 'ranger' && wLen(w) >= 6) dmg = Math.ceil(dmg * 1.75);
+  if (P.classId === 'ranger' && w.text.length >= 6) dmg = Math.ceil(dmg * 1.75);
   if (P.classId === 'necromancer' && w.isAttack) {
     dmg = Math.ceil(dmg * 2);
     P.hp = Math.min(P.maxHp, P.hp + 6);
@@ -967,7 +907,7 @@ function destroyWord(idx) {
   lastWordDmg = dmg;
   RunStats.wordsDestroyed++;
   RunStats.dmgDealt += dmg;
-  if (!mathMode && w.text.length >= 10) unlockAchievement('lexicographer');
+  if (w.text.length >= 10) unlockAchievement('lexicographer');
   if (dmg >= 100) unlockAchievement('overkill');
   if (RunStats.wordsDestroyed >= 150) unlockAchievement('wordsmith');
   RA.playWordDestroy(); RA.playEnemyHit();
@@ -980,7 +920,7 @@ function destroyWord(idx) {
     spawnFloat(W/2 + 20, WORD_EXIT_Y - 20, `+${vheal}`, C.txt);
   }
   if (leechTimer > 0) {
-    const lheal = wLen(w) * ((P.spellStacks && P.spellStacks['leech']) || 1);
+    const lheal = w.text.length * ((P.spellStacks && P.spellStacks['leech']) || 1);
     P.hp = Math.min(P.maxHp, P.hp + lheal);
     spawnFloat(W/2 - 20, WORD_EXIT_Y - 20, `+${lheal}`, C.cyan);
   }
@@ -1059,12 +999,12 @@ function activateSpell(spellIdx) {
       const vcount = stacks >= 3 ? 7 : stacks >= 2 ? 5 : 3;
       const targets = words
         .filter(w => !w.isAttack && !w.isPickup)
-        .sort((a, b) => wLen(a) - wLen(b))
+        .sort((a, b) => a.text.length - b.text.length)
         .slice(0, vcount);
       const activeWord = activeWordIdx >= 0 ? words[activeWordIdx] : null;
       let vtotal = 0;
       for (const t of targets) {
-        const vd = Math.ceil(wLen(t) * P.dmgMult * amp);
+        const vd = Math.ceil(t.text.length * P.dmgMult * amp);
         enemy.hp = Math.max(0, enemy.hp - vd);
         vtotal += vd;
         spawnFloat(t.x, t.y - 20, `-${vd}`, C.hi);
@@ -1147,7 +1087,7 @@ function startRun(classId) {
   if (hasModifier('fragile')) { P.hp = Math.round(P.hp * 0.5); P.maxHp = Math.round(P.maxHp * 0.5); }
   if (cls.startSpell && !hasModifier('no_spells')) { P.spells.push(cls.startSpell); P.spellCDs.push(0); P.spellStacks[cls.startSpell] = 1; }
   RunStats = { wordsDestroyed:0, dmgDealt:0, totalKeys:0, correctKeys:0, startTime:Date.now(), goldEarned:0, pickups:0, spellsCast:0, shopSpent:0, newAchievements:[] };
-  track('run_start', { class: classId, difficulty: DIFFICULTIES[diffIdx].id, math: mathMode });
+  track('run_start', { class: classId, difficulty: DIFFICULTIES[diffIdx].id });
   buildMap(); RA.setTheme('dungeon'); G.screen = 'map';
 }
 
@@ -1244,9 +1184,6 @@ function applyEventOption(opt) {
 }
 
 // ── Input ──────────────────────────────────────────────────────────────────────
-const MATH_SPELL_KEYS = ['q', 'w', 'e'];
-function spellKeyLabel(i) { return mathMode ? MATH_SPELL_KEYS[i].toUpperCase() : String(i + 1); }
-
 function processKey(key) {
   if (G.screen === 'title') {
     if (key === 'Enter') { dailyMode = false; G.screen = 'class_select'; RA.startMusic('dungeon'); }
@@ -1256,7 +1193,6 @@ function processKey(key) {
     if (key === 'g' || key === 'G') { lbTab = 'classic'; G.screen = 'leaderboard'; fetchLeaderboard(); }
     if (key === 'c' || key === 'C') { codexScroll = 0; G.screen = 'codex'; }
     if (key === 'd' || key === 'D') { RA.startMusic('dungeon'); startDailyRun(); }
-    if (key === 'x' || key === 'X') { mathMode = !mathMode; }
     return;
   }
   if (G.screen === 'codex') {
@@ -1354,8 +1290,7 @@ function processKey(key) {
       return;
     }
     if (P.spells && P.spells.length > 0) {
-      // Math mode needs the digits for answers, so spells move to Q / W / E
-      const si = mathMode ? MATH_SPELL_KEYS.indexOf(key.toLowerCase()) : parseInt(key) - 1;
+      const si = parseInt(key) - 1;
       if (si >= 0 && si < P.spells.length) { activateSpell(si); return; }
     }
     if (key === 'Backspace') { typed = typed.slice(0, -1); updateActiveWord(); return; }
@@ -1467,17 +1402,14 @@ function renderTitle() {
   if (!titleParticles.length) initTitleParticles();
   const blink = Math.floor(titleTick / 35) % 2 === 0;
   titleTick++;
-  const instr1 = mathMode
-    ? 'type the answers to times tables (1–12)  —  survive all 3 floors'
-    : 'type words to destroy enemies  —  survive all 3 floors';
+  const instr1 = 'type words to destroy enemies  —  survive all 3 floors';
   const best = bestRunLine();
   screen.innerHTML = [
-    '', '', '', '',
+    '', '', '', '', '',
     wh('TYPEROGUE'),
     '',
     dim('a typing roguelike'),
-    mathMode ? sp('× TIMES TABLES ×', C.gold) : '',
-    '',
+    '', '',
     blink ? wh('PRESS ENTER TO BEGIN') : '',
     '', '',
     dim(instr1),
@@ -1485,8 +1417,7 @@ function renderTitle() {
     best ? dim('best: ' + best) : '',
     '', '', '',
     dim('[I] instructions  ·  [A] achievements  ·  [C] codex'),
-    dim('[G] rankings  ·  [L] ' + (darkMode ? 'light mode' : 'dark mode') + '  ·  [X] times tables: ' + (mathMode ? 'on' : 'off')),
-    dim('by joe accardi'),
+    dim('[G] rankings  ·  [L] ' + (darkMode ? 'light mode' : 'dark mode') + '  ·  by joe accardi'),
     '',
     (() => {
       const dc = getDailyConfig(dailyDateStr());
@@ -1639,7 +1570,7 @@ function renderCombat() {
     ? '\n' + P.spells.map((s, i) => {
         const cd = P.spellCDs[i] || 0;
         const lv = (P.spellStacks && P.spellStacks[s] > 1) ? ' Lv' + P.spellStacks[s] : '';
-        return sp('[' + spellKeyLabel(i) + ']' + s + lv + (cd > 0 ? ' '+(cd/1000).toFixed(1)+'s' : ''), cd > 0 ? C.dim : C.txt);
+        return sp('[' + (i+1) + ']' + s + lv + (cd > 0 ? ' '+(cd/1000).toFixed(1)+'s' : ''), cd > 0 ? C.dim : C.txt);
       }).join('   ')
     : '';
 
@@ -1696,15 +1627,6 @@ function renderCombat() {
     const txt = w.text;
     const tLen = isActive ? typed.length : 0;
     let inner = '';
-
-    if (w.display) {
-      // Math problem: show "7×8=" then the digits typed so far (or "?")
-      const color = w.isAttack ? C.red : w.marked ? C.gold : isActive ? C.hi : C.txt;
-      inner = sp(w.display + '=', color) + (tLen > 0 ? sp(typed, C.white) : sp('?', C.dim));
-      if (w.isPickup) inner += '<br>' + sp(w.pickupEffect.label, w.pickupEffect.color);
-      wHtml += `<span class="w" style="left:${w.x}px;top:${w.y}px">${inner}</span>`;
-      return;
-    }
 
     if (w.isPickup) {
       const eff = w.pickupEffect;
@@ -2118,13 +2040,13 @@ function renderInstructions() {
     dim('   ' + '─'.repeat(40)),
     '',
     wh('   combat'),
-    dim(mathMode ? '   type the answers to the problems drifting down the screen' : '   type the words drifting across the screen to deal damage'),
-    dim(mathMode ? '   harder problems = more damage' : '   longer words = more damage'),
+    dim('   type the words drifting across the screen to deal damage'),
+    dim('   longer words = more damage'),
     dim('   red words are enemy attacks — type them to block'),
-    dim(mathMode ? '   blinking problems with a bonus label are pickups' : '   symbols (!@#$%) are pickups — type them for bonuses'),
+    dim('   symbols (!@#$%) are pickups — type them for bonuses'),
     '',
     wh('   spells'),
-    dim(mathMode ? '   press Q / W / E to cast a spell (if you have one)' : '   press 1-3 to cast a spell (if you have one)'),
+    dim('   press 1-3 to cast a spell (if you have one)'),
     dim('   acquiring the same spell again raises its level (max Lv3)'),
     dim('   freeze  — stops all words for 3s'),
     dim('   shield  — absorbs incoming damage'),

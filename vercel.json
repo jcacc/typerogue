@@ -2,9 +2,6 @@
   "rewrites": [
     { "source": "/ipad", "destination": "/index.html" },
     { "source": "/ipad/", "destination": "/index.html" },
-    { "source": "/ipad/:file", "destination": "/:file" },
-    { "source": "/math", "destination": "/index.html" },
-    { "source": "/math/", "destination": "/index.html" },
-    { "source": "/math/:file", "destination": "/:file" }
+    { "source": "/ipad/:file", "destination": "/:file" }
   ]
 }

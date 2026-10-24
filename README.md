@@ -99,18 +99,6 @@ Destroy words in quick succession to build a multiplier:
 
 Taking damage resets the combo. Rogue has a wider timing window.
 
-## Times tables mode
-
-Same game, but instead of words you get multiplication problems from 1×1 to 12×12 — type the answer to hit. Open `/math` (or add `?math` to the URL), or press `[X]` on the title screen to toggle it.
-
-- Problems get harder by floor: floor 1 is mostly 1s, 2s, 5s, 10s and 11s; floor 2 adds the 6s–9s; floor 3 brings the 8s, 9s and 12s
-- Harder problems deal more damage
-- Spells are cast with `Q` / `W` / `E`, since the number keys are for answers
-- Problems fall 20% slower to leave thinking time
-- Answers on screen never overlap (you won't see `6` and `64` at the same time)
-- Pickups are easy problems instead of symbols
-- Math runs skip the global leaderboard
-
 ## Leaderboard
 
 After each run you can submit your score to the global leaderboard hosted at `trinacria.ddns.net`. Score is calculated as:
