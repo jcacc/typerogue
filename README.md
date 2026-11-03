@@ -10,6 +10,8 @@ A typing roguelike inspired by Slay the Spire, Vampire Survivors and memories of
 
 **v1.0** — [play](https://typerogue.xyz) · [global leaderboard](https://trinacria.ddns.net/leaderboard)
 
+Sister game: **[MULTIROGUE](https://multirogue.vercel.app)**, a times-table roguelike in the same style, with the same music. Munch the answers to multiplication problems, dodge monsters and beat three bosses. Works on iPad and Android too.
+
 ## How to play
 
 Open `index.html` in a browser, or play the hosted version linked above. No build step needed.
